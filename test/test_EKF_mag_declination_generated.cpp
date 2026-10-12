@@ -35,8 +35,8 @@
 #include "EKF/ekf.h"
 #include "test_helper/comparison_helper.h"
 
-#include "../EKF/python/ekf_derivation/generated/compute_mag_declination_pred_innov_var_and_h.h"
-#include "../EKF/python/ekf_derivation/generated/state.h"
+#include "../src/EKF/python/ekf_derivation/generated/compute_mag_declination_pred_innov_var_and_h.h"
+#include "../src/EKF/python/ekf_derivation/generated/state.h"
 
 using namespace matrix;
 

@@ -2,7 +2,7 @@
 
 This directory contains a host-usable C++ implementation of the PX4 EKF2 estimator. It retains the estimator's original EKF core and sensor-fusion algorithms, with a small host-facing API for submitting measurements and advancing the filter. The library is intended to be linked into another application; it does not need to run as a PX4 module.
 
-This guide describes the library's architecture, algorithms, build options, data contracts, integration sequence, outputs, and example program. The primary API is in [`EKF2.hpp`](EKF2.hpp), the estimator core is in [`EKF/ekf.h`](EKF/ekf.h), and sensor sample types, units, coordinate frames, and parameters are defined in [`EKF/common.h`](EKF/common.h).
+This guide describes the library's architecture, algorithms, build options, data contracts, integration sequence, outputs, and example program. The primary API is in [`src/EKF2.hpp`](src/EKF2.hpp), the estimator core is in [`src/EKF/ekf.h`](src/EKF/ekf.h), and sensor sample types, units, coordinate frames, and parameters are defined in [`src/EKF/common.h`](src/EKF/common.h).
 
 ## What the library does
 
@@ -16,20 +16,20 @@ The library does **not** acquire or calibrate sensors, schedule its own updates,
 
 | Component | Location | Purpose |
 |---|---|---|
-| Host facade | [`EKF2.hpp`](EKF2.hpp), [`EKF2.cpp`](EKF2.cpp) | Accepts an `InputFrame`, forwards newly available sensor samples to the core, adds the IMU sample, and advances the estimator. |
-| Multi-instance policy | [`EKF2Selector.hpp`](EKF2Selector.hpp), [`EKF2Selector.cpp`](EKF2Selector.cpp) | Selects among host-managed EKFs from host-provided health, fault, and score values. It does not own or update EKF instances. |
-| EKF core | [`EKF/ekf.h`](EKF/ekf.h) and the `.cpp` files under `EKF/` | Maintains nominal navigation states and covariance, predicts from IMU, runs fusion control, and exposes estimates and diagnostics. |
-| Shared data contract | [`EKF/common.h`](EKF/common.h) | Defines sensor samples, run-time fusion controls, estimator parameters, status flags, and frame enums. |
-| Delayed input interface | [`EKF/estimator_interface.h`](EKF/estimator_interface.h) | Buffers sensor data, maintains common estimator state and controls, and provides input/output accessors. |
-| Sensor aiding | [`EKF/aid_sources/`](EKF/aid_sources/) | Contains sensor-specific checks, fusion control, state resets, and measurement updates. Most sources are built only when their feature is enabled. |
-| Bias estimation | [`EKF/bias_estimator/`](EKF/bias_estimator/) | Scalar random-walk bias estimators for height and horizontal position aiding sources. |
-| IMU down-sampling | [`EKF/imu_down_sampler/`](EKF/imu_down_sampler/) | Combines incoming IMU increments when the configured prediction period is slower than the input rate. |
-| Output prediction | [`EKF/output_predictor/`](EKF/output_predictor/) | Propagates low-latency output states and tracks delayed EKF corrections. |
-| Sample buffers | [`EKF/ringbuffer/`](EKF/ringbuffer/) | Timestamped circular buffers used to align measurements with the fusion horizon. |
-| Emergency yaw estimate | [`EKF/yaw_estimator/`](EKF/yaw_estimator/) | Gaussian-sum yaw estimator with multiple yaw hypotheses and velocity-based likelihood weighting. Built with GNSS support. |
-| Generated equations | [`EKF/ekf_derivation/generated/`](EKF/ekf_derivation/generated/) | Generated state definitions and covariance/Jacobian equations used by the core. Keep these files consistent with their generator. |
+| Host facade | [`src/EKF2.hpp`](src/EKF2.hpp), [`src/EKF2.cpp`](src/EKF2.cpp) | Accepts an `InputFrame`, forwards newly available sensor samples to the core, adds the IMU sample, and advances the estimator. |
+| Multi-instance policy | [`src/EKF2Selector.hpp`](src/EKF2Selector.hpp), [`src/EKF2Selector.cpp`](src/EKF2Selector.cpp) | Selects among host-managed EKFs from host-provided health, fault, and score values. It does not own or update EKF instances. |
+| EKF core | [`src/EKF/ekf.h`](src/EKF/ekf.h) and the `.cpp` files under `src/EKF/` | Maintains nominal navigation states and covariance, predicts from IMU, runs fusion control, and exposes estimates and diagnostics. |
+| Shared data contract | [`src/EKF/common.h`](src/EKF/common.h) | Defines sensor samples, run-time fusion controls, estimator parameters, status flags, and frame enums. |
+| Delayed input interface | [`src/EKF/estimator_interface.h`](src/EKF/estimator_interface.h) | Buffers sensor data, maintains common estimator state and controls, and provides input/output accessors. |
+| Sensor aiding | [`src/EKF/aid_sources/`](src/EKF/aid_sources/) | Contains sensor-specific checks, fusion control, state resets, and measurement updates. Most sources are built only when their feature is enabled. |
+| Bias estimation | [`src/EKF/bias_estimator/`](src/EKF/bias_estimator/) | Scalar random-walk bias estimators for height and horizontal position aiding sources. |
+| IMU down-sampling | [`src/EKF/imu_down_sampler/`](src/EKF/imu_down_sampler/) | Combines incoming IMU increments when the configured prediction period is slower than the input rate. |
+| Output prediction | [`src/EKF/output_predictor/`](src/EKF/output_predictor/) | Propagates low-latency output states and tracks delayed EKF corrections. |
+| Sample buffers | [`src/EKF/ringbuffer/`](src/EKF/ringbuffer/) | Timestamped circular buffers used to align measurements with the fusion horizon. |
+| Emergency yaw estimate | [`src/EKF/yaw_estimator/`](src/EKF/yaw_estimator/) | Gaussian-sum yaw estimator with multiple yaw hypotheses and velocity-based likelihood weighting. Built with GNSS support. |
+| Generated equations | [`src/EKF/ekf_derivation/generated/`](src/EKF/ekf_derivation/generated/) | Generated state definitions and covariance/Jacobian equations used by the core. Keep these files consistent with their generator. |
 
-`EKF/aid_sources/aux_global_position/` contains an optional PX4-specific uORB adapter. It is not part of the standalone host API and is not enabled by the standalone CMake feature options.
+`src/EKF/aid_sources/aux_global_position/` contains an optional PX4-specific uORB adapter. It is not part of the standalone host API and is not enabled by the standalone CMake feature options.
 
 ## Estimation algorithms
 
@@ -181,7 +181,7 @@ int main()
 
 ## Input samples, units, and frames
 
-The sample structures are defined in `EKF/common.h`; the complete per-field descriptions there are authoritative. All timestamps supplied to the estimator must be expressed in the same monotonic microsecond time base. Measurement integration periods and delays are in seconds or milliseconds as specified by each field/parameter.
+The sample structures are defined in `src/EKF/common.h`; the complete per-field descriptions there are authoritative. All timestamps supplied to the estimator must be expressed in the same monotonic microsecond time base. Measurement integration periods and delays are in seconds or milliseconds as specified by each field/parameter.
 
 | Sample | Main contents | Important conventions |
 |---|---|---|
@@ -200,7 +200,7 @@ Sensor drivers must convert native sensor messages into these units and frames b
 
 ## Configuration and run-time controls
 
-`EKF2::parameters()` returns the estimator's mutable `estimator::parameters`. Parameters cover prediction timing, sensor delays, process and observation noise, innovation gates, sensor modes, mounting offsets, GNSS health limits, and other estimator behavior. Names retain the EKF2 parameter naming convention; descriptions, units, defaults, and feature guards are in `EKF/common.h`.
+`EKF2::parameters()` returns the estimator's mutable `estimator::parameters`. Parameters cover prediction timing, sensor delays, process and observation noise, innovation gates, sensor modes, mounting offsets, GNSS health limits, and other estimator behavior. Names retain the EKF2 parameter naming convention; descriptions, units, defaults, and feature guards are in `src/EKF/common.h`.
 
 `EKF2::fusionControl()` returns `estimator::FusionControl`. Each `FusionSensor` contains:
 

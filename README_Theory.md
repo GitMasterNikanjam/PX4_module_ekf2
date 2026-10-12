@@ -3,12 +3,12 @@
 > **Purpose**
 >
 > This document explains the mathematical theory and software architecture behind PX4's
-> `EKF2` navigation estimator, with special attention to the supplied `EKF2.cpp`,
-> `EKF2.hpp`, `EKF2Selector.cpp`, and `EKF2Selector.hpp` files.
+> `EKF2` navigation estimator, with special attention to the supplied `src/EKF2.cpp`,
+> `src/EKF2.hpp`, `src/EKF2Selector.cpp`, and `src/EKF2Selector.hpp` files.
 >
 > The four supplied files are primarily the **PX4 integration, sensor I/O, publication,
 > parameter, and multi-EKF selection layer**. The detailed covariance and observation
-> Jacobians are implemented/generated inside the core `EKF/` library. Therefore this
+> Jacobians are implemented/generated inside the core `src/EKF/` library. Therefore this
 > document separates:
 >
 > 1. behavior that is directly visible in the supplied files, and
@@ -130,7 +130,7 @@ The core nonlinear estimation mathematics is therefore conceptually below this l
 PX4/uORB world
      |
      v
-  EKF2.cpp
+  src/EKF2.cpp
      |
      v
   Ekf class
@@ -1805,7 +1805,7 @@ Each instance publishes its own:
 
 ## 42. Selector Health Metric
 
-The supplied `EKF2Selector.cpp` uses the estimator innovation test ratios.
+The supplied `src/EKF2Selector.cpp` uses the estimator innovation test ratios.
 
 Invalid/non-positive velocity, position, or height test ratios are replaced with
 `1.0` for selector scoring.
@@ -2626,7 +2626,7 @@ noisy, intermittent, and occasionally faulty sensors.
 
 # Source-to-Theory Map for the Supplied Files
 
-## 74. `EKF2.hpp`
+## 74. `src/EKF2.hpp`
 
 Most useful for understanding:
 
@@ -2639,7 +2639,7 @@ Most useful for understanding:
 
 ---
 
-## 75. `EKF2.cpp`
+## 75. `src/EKF2.cpp`
 
 Most useful for understanding:
 
@@ -2656,7 +2656,7 @@ Most useful for understanding:
 
 ---
 
-## 76. `EKF2Selector.hpp`
+## 76. `src/EKF2Selector.hpp`
 
 Most useful for understanding:
 
@@ -2669,7 +2669,7 @@ Most useful for understanding:
 
 ---
 
-## 77. `EKF2Selector.cpp`
+## 77. `src/EKF2Selector.cpp`
 
 Most useful for understanding the exact selector behavior:
 
@@ -2701,13 +2701,13 @@ plus:
 If studying the implementation, a productive order is:
 
 ```text
-1. EKF2.hpp / EKF2.cpp
+1. src/EKF2.hpp / src/EKF2.cpp
    Understand PX4 interface and data flow.
 
-2. EKF/estimator_interface.*
+2. src/EKF/estimator_interface.*
    Understand sample buffers and delayed horizon.
 
-3. EKF/ekf.h / core update code
+3. src/EKF/ekf.h / core update code
    Understand state machine and central EKF control.
 
 4. EKF prediction code

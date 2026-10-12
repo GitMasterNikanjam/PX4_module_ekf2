@@ -1,8 +1,7 @@
-# Optional standalone build of the EKF core. EKF2.cpp and EKF2Selector.cpp
-# remain PX4 runtime adapters and are intentionally not part of this target.
+# Optional standalone build of the EKF core and its host-side EKF2 adapters.
 
 if(NOT PX4_EKF2_GENERATED_INCLUDE_DIR)
-	set(PX4_EKF2_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/EKF")
+	set(PX4_EKF2_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/EKF")
 endif()
 
 if(NOT EXISTS "${PX4_EKF2_GENERATED_INCLUDE_DIR}/ekf_derivation/generated/state.h")
@@ -58,23 +57,25 @@ include_directories(BEFORE
 	"${CMAKE_SOURCE_DIR}/PX4_lat_lon_alt"
 	"${CMAKE_SOURCE_DIR}/PX4_atmosphere"
 	"${CMAKE_SOURCE_DIR}/PX4_world_magnetic_model"
-	"${CMAKE_CURRENT_SOURCE_DIR}/EKF/ringbuffer"
-	"${CMAKE_CURRENT_SOURCE_DIR}/EKF"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/EKF/ringbuffer"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/EKF"
 	"${PX4_EKF2_GENERATED_INCLUDE_DIR}"
 )
-add_subdirectory(EKF)
+add_subdirectory(src/EKF)
 
 target_include_directories(ecl_EKF
 	PUBLIC
-		"${CMAKE_CURRENT_SOURCE_DIR}"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src"
 		"${PX4_mathlib_DIR}"
 		"${PX4_matrix_DIR}"
 		"${CMAKE_SOURCE_DIR}/PX4_geo"
 		"${CMAKE_SOURCE_DIR}/PX4_lat_lon_alt"
 		"${CMAKE_SOURCE_DIR}/PX4_atmosphere"
 		"${CMAKE_SOURCE_DIR}/PX4_world_magnetic_model"
-		"${CMAKE_CURRENT_SOURCE_DIR}/EKF/ringbuffer"
-		"${CMAKE_CURRENT_SOURCE_DIR}/EKF"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/EKF/ringbuffer"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/EKF"
 )
 
 target_compile_features(ecl_EKF PUBLIC cxx_std_17)
@@ -92,7 +93,7 @@ target_link_libraries(ecl_EKF
 
 add_library(PX4::ekf2_core ALIAS ecl_EKF)
 add_library(PX4::ekf2 ALIAS ecl_EKF)
-target_sources(ecl_EKF PRIVATE EKF2.cpp EKF2Selector.cpp)
+target_sources(ecl_EKF PRIVATE src/EKF2.cpp src/EKF2Selector.cpp)
 
 option(PX4_EKF2_BUILD_EXAMPLE "Build the host-side EKF2 example" OFF)
 if(PX4_EKF2_BUILD_EXAMPLE)
