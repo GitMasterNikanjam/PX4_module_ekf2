@@ -40,8 +40,8 @@
 #include <ekf_derivation/generated/compute_drag_x_innov_var_and_h.h>
 #include <ekf_derivation/generated/compute_drag_y_innov_var_and_h.h>
 
-#include <mathlib/mathlib.h>
-#include <lib/atmosphere/atmosphere.h>
+#include <mathlib.h>
+#include <atmosphere.h>
 
 void Ekf::controlDragFusion(const imuSample &imu_delayed)
 {

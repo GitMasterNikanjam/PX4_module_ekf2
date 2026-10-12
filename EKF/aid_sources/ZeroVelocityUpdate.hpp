@@ -36,13 +36,22 @@
 
 #include "EstimatorAidSource.hpp"
 
+/**
+ * @brief Applies a zero-velocity aiding constraint while the vehicle is at rest.
+ *
+ * This is an internal aid source used to limit velocity drift when stationary.
+ * The timestamp accessor reports the last successful fusion in microseconds.
+ */
 class ZeroVelocityUpdate : public EstimatorAidSource
 {
 public:
+	/** @brief Construct zero-velocity aiding state. */
 	ZeroVelocityUpdate();
 	virtual ~ZeroVelocityUpdate() = default;
 
+	/** @brief Clear the last successful zero-velocity fusion timestamp. */
 	void reset() override;
+	/** @brief Fuse a zero-velocity observation when stationary conditions pass. */
 	bool update(Ekf &ekf, const estimator::imuSample &imu_delayed) override;
 
 	const auto &time_last_fuse() const { return _time_last_fuse; }

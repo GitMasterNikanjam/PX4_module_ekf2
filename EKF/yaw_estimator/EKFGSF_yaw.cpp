@@ -35,7 +35,7 @@
 
 #include <cstdlib>
 
-#include <lib/geo/geo.h> // CONSTANTS_ONE_G
+#include <geo.h> // CONSTANTS_ONE_G
 
 #include "derivation/generated/yaw_est_predict_covariance.h"
 #include "derivation/generated/yaw_est_compute_measurement_update.h"

@@ -36,7 +36,7 @@
 
 #include <cstdint>
 
-#include <lib/matrix/matrix/math.hpp>
+#include <matrix/math.hpp>
 
 // forward declarations
 class Ekf;
@@ -46,9 +46,17 @@ namespace estimator
 struct imuSample;
 };
 
+/**
+ * @brief Common lifecycle interface for auxiliary EKF aiding updates.
+ *
+ * Implementations reset their private history when reset() is called and
+ * evaluate/fuse a delayed IMU-aligned sample from update(). These helpers are
+ * internal EKF components; the host normally feeds sensor data through EKF2.
+ */
 class EstimatorAidSource
 {
 public:
+	/** @brief Construct an auxiliary aid source with default state. */
 	EstimatorAidSource() = default;
 	virtual ~EstimatorAidSource() = default;
 

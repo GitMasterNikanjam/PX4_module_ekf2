@@ -40,7 +40,7 @@
 
 #include "ekf.h"
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 #include <cstdlib>
 
 #include <ekf_derivation/generated/compute_gnss_yaw_pred_innov_var_and_h.h>

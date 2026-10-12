@@ -42,7 +42,7 @@
 
 #include "estimator_interface.h"
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
 EstimatorInterface::~EstimatorInterface()
 {

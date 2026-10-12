@@ -43,7 +43,7 @@ static constexpr const char *EV_AID_SRC_NAME = "EV position";
 
 void Ekf::controlEvPosFusion(const imuSample &imu_sample, const extVisionSample &ev_sample,
 			     const bool common_starting_conditions_passing, const bool ev_reset, const bool quality_sufficient,
-			     estimator_aid_source2d_s &aid_src)
+			     ekf2::AidSourceStatus2D &aid_src)
 {
 	const bool yaw_alignment_changed = (!_control_status_prev.flags.ev_yaw && _control_status.flags.ev_yaw)
 					   || (_control_status_prev.flags.yaw_align != _control_status.flags.yaw_align);
@@ -207,7 +207,7 @@ void Ekf::controlEvPosFusion(const imuSample &imu_sample, const extVisionSample 
 }
 
 void Ekf::startEvPosFusion(const Vector2f &measurement, const Vector2f &measurement_var,
-			   estimator_aid_source2d_s &aid_src)
+			   ekf2::AidSourceStatus2D &aid_src)
 {
 	// activate fusion
 	// TODO:  (_params.position_sensor_ref == PositionSensor::EV)
@@ -232,7 +232,7 @@ void Ekf::startEvPosFusion(const Vector2f &measurement, const Vector2f &measurem
 }
 
 void Ekf::updateEvPosFusion(const Vector2f &measurement, const Vector2f &measurement_var, bool quality_sufficient,
-			    bool reset, estimator_aid_source2d_s &aid_src)
+			    bool reset, ekf2::AidSourceStatus2D &aid_src)
 {
 	if (reset) {
 

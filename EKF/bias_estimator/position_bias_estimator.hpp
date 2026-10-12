@@ -40,20 +40,33 @@
 
 #include "bias_estimator.hpp"
 
+/**
+ * @brief Tracks horizontal position bias for a non-reference aiding source.
+ *
+ * North/east bias components are predicted and fused independently. Estimation
+ * is active only while the source is selected for fusion and differs from the
+ * configured reference source. Positions and biases use metres.
+ */
 class PositionBiasEstimator
 {
 public:
+	/** @brief Construct a horizontal bias estimator for a sensor and its reference source. */
 	PositionBiasEstimator(PositionSensor sensor, const PositionSensor &sensor_ref):
 		_sensor(sensor),
 		_sensor_ref(sensor_ref)
 	{}
+	/** @brief Destroy the position-bias estimator. */
 	virtual ~PositionBiasEstimator() = default;
 
+	/** @brief Return whether this source's position-bias estimator is enabled. */
 	bool fusionActive() const { return _is_sensor_fusion_active; }
 
+	/** @brief Enable prediction and fusion of this source's horizontal position bias. */
 	void setFusionActive() { _is_sensor_fusion_active = true; }
+	/** @brief Disable prediction and fusion of this source's horizontal position bias. */
 	void setFusionInactive() { _is_sensor_fusion_active = false; }
 
+	/** @brief Predict each horizontal bias component when this source is active and non-reference. */
 	void predict(float dt)
 	{
 		if ((_sensor_ref != _sensor) && _is_sensor_fusion_active) {
@@ -62,6 +75,7 @@ public:
 		}
 	}
 
+	/** @brief Fuse bias. */
 	void fuseBias(const Vector2f &bias, const Vector2f &bias_var)
 	{
 		if ((_sensor_ref != _sensor) && _is_sensor_fusion_active) {
@@ -70,12 +84,14 @@ public:
 		}
 	}
 
+	/** @brief Set bias. */
 	void setBias(const Vector2f &bias)
 	{
 		_bias[0].setBias(bias(0));
 		_bias[1].setBias(bias(1));
 	}
 
+	/** @brief Set process noise spectral density. */
 	void setProcessNoiseSpectralDensity(float nsd)
 	{
 		_bias[0].setProcessNoiseSpectralDensity(nsd);
@@ -84,20 +100,27 @@ public:
 	// void setBiasStdDev(float state_noise) { _state_var = state_noise * state_noise; }
 	// void setInnovGate(float gate_size) { _gate_size = gate_size; }
 
+	/** @brief Set max state noise. */
 	void setMaxStateNoise(const Vector2f &max_noise)
 	{
 		_bias[0].setMaxStateNoise(max_noise(0));
 		_bias[1].setMaxStateNoise(max_noise(1));
 	}
 
+	/** @brief Return north/east bias estimate in metres. */
 	Vector2f getBias() const { return Vector2f(_bias[0].getBias(), _bias[1].getBias()); }
+	/** @brief Return one horizontal bias component by axis index. */
 	float getBias(int index) const { return _bias[index].getBias(); }
 
+	/** @brief Return north/east bias variance in square metres. */
 	Vector2f getBiasVar() const { return Vector2f(_bias[0].getBiasVar(), _bias[1].getBiasVar()); }
+	/** @brief Return one horizontal bias variance by axis index. */
 	float getBiasVar(int index) const { return _bias[index].getBiasVar(); }
 
+	/** @brief Return bias-estimator status for one horizontal axis. */
 	const BiasEstimator::status &getStatus(int index) const { return _bias[index].getStatus(); }
 
+	/** @brief Reset north/east bias estimates and their covariance histories. */
 	void reset()
 	{
 		_bias[0].reset();
@@ -105,10 +128,10 @@ public:
 	}
 
 private:
-	BiasEstimator _bias[2] {};
+	BiasEstimator _bias[2] {}; ///< Stores bias.
 
-	const PositionSensor _sensor;
-	const PositionSensor &_sensor_ref;
+	const PositionSensor _sensor; ///< Stores sensor.
+	const PositionSensor &_sensor_ref; ///< Stores sensor ref.
 
 	bool _is_sensor_fusion_active{false}; // TODO: replace by const ref and remove setter when migrating _control_status.flags from union to bool
 };

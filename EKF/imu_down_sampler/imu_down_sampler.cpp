@@ -1,6 +1,6 @@
 #include "imu_down_sampler/imu_down_sampler.hpp"
 
-#include <lib/mathlib/mathlib.h>
+#include <mathlib.h>
 
 ImuDownSampler::ImuDownSampler(int32_t &target_dt_us) : _target_dt_us(target_dt_us)
 {

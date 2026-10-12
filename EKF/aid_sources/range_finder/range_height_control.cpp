@@ -289,7 +289,7 @@ float Ekf::getRngVar() const
 		       0.f);
 }
 
-void Ekf::resetTerrainToRng(estimator_aid_source1d_s &aid_src)
+void Ekf::resetTerrainToRng(ekf2::AidSourceStatus1D &aid_src)
 {
 	// Since the distance is not a direct observation of the terrain state but is based
 	// on the height state, a reset should consider the height uncertainty. This can be

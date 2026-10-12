@@ -34,15 +34,24 @@
 #ifndef EKF_GNSS_CHECKS_H
 #define EKF_GNSS_CHECKS_H
 
-#include <lib/geo/geo.h>
+#include <geo.h>
 
 #include "../../common.h"
 
 namespace estimator
 {
+/**
+ * @brief Evaluates GNSS quality, drift, and integrity before aiding is enabled.
+ *
+ * run() updates per-check failure flags and filtered motion estimates using
+ * the supplied GNSS sample and current estimator time. passed() reports the
+ * current health decision; initialChecksPassed() records whether initial
+ * acceptance checks have completed successfully.
+ */
 class GnssChecks final
 {
 public:
+	/** @brief Construct health checks bound to GNSS limits, timing, and EKF status. */
 	GnssChecks(int32_t &check_mask, int32_t &ekf2_req_nsats, float &ekf2_req_pdop, float &ekf2_req_eph, float &ekf2_req_epv,
 		   float &ekf2_req_sacc, float &ekf2_req_hdrift, float &ekf2_req_vdrift, int32_t &ekf2_req_fix, float &ekf2_vel_lim,
 		   uint32_t &min_health_time_us, filter_control_status_u &control_status):
@@ -65,15 +74,17 @@ public:
 			uint16_t spoofed: 1; ///< 10 - true if the GNSS data is spoofed
 			uint16_t jammed : 1; ///< 11 - true if the GNSS data is jammed
 		} flags;
-		uint16_t value;
+		uint16_t value; ///< Stores value.
 	};
 
+	/** @brief Reset hard. */
 	void resetHard()
 	{
 		_initial_checks_passed = false;
 		reset();
 	}
 
+	/** @brief Clear pass/fail history while retaining configured GNSS thresholds. */
 	void reset()
 	{
 		_passed = false;
@@ -85,16 +96,24 @@ public:
 	/*
 	 * Return true if the GNSS solution quality is adequate.
 	*/
+	/** @brief Evaluate configured GNSS health checks and update health state. */
 	bool run(const gnssSample &gnss, uint64_t time_us);
+	/** @brief Return whether all currently enabled GNSS health checks pass. */
 	bool passed() const { return _passed; }
+	/** @brief Return whether the initial GNSS acceptance checks have passed. */
 	bool initialChecksPassed() const { return _initial_checks_passed; }
+	/** @brief Return timestamp of latest successful health check in microseconds. */
 	uint64_t getLastPassUs() const { return _time_last_pass_us; }
+	/** @brief Return timestamp of latest failed health check in microseconds. */
 	uint64_t getLastFailUs() const { return _time_last_fail_us; }
 
 	const gps_check_fail_status_u &getFailStatus() const { return _check_fail_status; }
 
+	/** @brief Return filtered horizontal position drift rate in m/s. */
 	float horizontal_position_drift_rate_m_s() const { return _horizontal_position_drift_rate_m_s; }
+	/** @brief Return filtered vertical position drift rate in m/s. */
 	float vertical_position_drift_rate_m_s() const { return _vertical_position_drift_rate_m_s; }
+	/** @brief Return filtered horizontal velocity magnitude in m/s. */
 	float filtered_horizontal_velocity_m_s() const { return _filtered_horizontal_velocity_m_s; }
 
 private:
@@ -113,53 +132,59 @@ private:
 		kJammed  = (1 << 11)
 	};
 
+	/** @brief Is check enabled. */
 	bool isCheckEnabled(GnssChecksMask check) { return (_params.check_mask & static_cast<int32_t>(check)); }
 
+	/** @brief Run simplified checks. */
 	bool runSimplifiedChecks(const gnssSample &gnss);
+	/** @brief Run initial fix checks. */
 	bool runInitialFixChecks(const gnssSample &gnss);
+	/** @brief Run on ground gnss checks. */
 	void runOnGroundGnssChecks(const gnssSample &gnss);
 
+	/** @brief Reset drift filters. */
 	void resetDriftFilters();
 
+	/** @brief Is timed out. */
 	bool isTimedOut(uint64_t timestamp_to_check_us, uint64_t now_us, uint64_t timeout_period) const
 	{
 		return (timestamp_to_check_us == 0) || (timestamp_to_check_us + timeout_period < now_us);
 	}
 
-	gps_check_fail_status_u _check_fail_status{};
+	gps_check_fail_status_u _check_fail_status{}; ///< Stores check fail status.
 
-	float _horizontal_position_drift_rate_m_s{NAN};
-	float _vertical_position_drift_rate_m_s{NAN};
-	float _filtered_horizontal_velocity_m_s{NAN};
+	float _horizontal_position_drift_rate_m_s{NAN}; ///< Time interval or time constant in seconds: horizontal position drift rate m s.
+	float _vertical_position_drift_rate_m_s{NAN}; ///< Time interval or time constant in seconds: vertical position drift rate m s.
+	float _filtered_horizontal_velocity_m_s{NAN}; ///< Time interval or time constant in seconds: filtered horizontal velocity m s.
 
-	MapProjection lat_lon_prev{};
-	float _alt_prev{0.0f};
+	MapProjection lat_lon_prev{}; ///< Stores lat lon prev.
+	float _alt_prev{0.0f}; ///< Stores alt prev.
 
-	Vector3f _lat_lon_alt_deriv_filt{};
-	Vector2f _vel_ne_filt{};
+	Vector3f _lat_lon_alt_deriv_filt{}; ///< Stores lat lon alt deriv filt.
+	Vector2f _vel_ne_filt{}; ///< Stores vel ne filt.
 
 	float _vel_d_filt{0.0f};		///< GNSS filtered Down velocity (m/sec)
-	uint64_t _time_last_fail_us{0};
-	uint64_t _time_last_pass_us{0};
-	bool _initial_checks_passed{false};
-	bool _passed{false};
+	uint64_t _time_last_fail_us{0}; ///< Timestamp or duration value in microseconds: time last fail us.
+	uint64_t _time_last_pass_us{0}; ///< Timestamp or duration value in microseconds: time last pass us.
+	bool _initial_checks_passed{false}; ///< State flag indicating initial checks passed.
+	bool _passed{false}; ///< State flag indicating passed.
 
 	struct Params {
-		const int32_t &check_mask;
-		const int32_t &ekf2_req_nsats;
-		const float &ekf2_req_pdop;
-		const float &ekf2_req_eph;
-		const float &ekf2_req_epv;
-		const float &ekf2_req_sacc;
-		const float &ekf2_req_hdrift;
-		const float &ekf2_req_vdrift;
-		const int32_t &ekf2_req_fix;
-		const float &ekf2_vel_lim;
-		const uint32_t &min_health_time_us;
+		const int32_t &check_mask; ///< Stores check mask.
+		const int32_t &ekf2_req_nsats; ///< Stores ekf2 req nsats.
+		const float &ekf2_req_pdop; ///< Stores ekf2 req pdop.
+		const float &ekf2_req_eph; ///< Stores ekf2 req eph.
+		const float &ekf2_req_epv; ///< Stores ekf2 req epv.
+		const float &ekf2_req_sacc; ///< Stores ekf2 req sacc.
+		const float &ekf2_req_hdrift; ///< Stores ekf2 req hdrift.
+		const float &ekf2_req_vdrift; ///< Stores ekf2 req vdrift.
+		const int32_t &ekf2_req_fix; ///< Stores ekf2 req fix.
+		const float &ekf2_vel_lim; ///< Stores ekf2 vel lim.
+		const uint32_t &min_health_time_us; ///< Timestamp or duration value in microseconds: min health time us.
 	};
 
-	const Params _params;
-	const filter_control_status_u &_control_status;
+	const Params _params; ///< Stores params.
+	const filter_control_status_u &_control_status; ///< Stores control status.
 };
 }; // namespace estimator
 

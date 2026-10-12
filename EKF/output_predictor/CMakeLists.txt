@@ -36,4 +36,9 @@ add_library(output_predictor
 	output_predictor.h
 )
 
-add_dependencies(output_predictor prebuild_targets lat_lon_alt)
+if(TARGET PX4::lat_lon_alt)
+	target_link_libraries(output_predictor PUBLIC PX4::lat_lon_alt)
+	add_dependencies(output_predictor prebuild_targets)
+else()
+	add_dependencies(output_predictor prebuild_targets lat_lon_alt)
+endif()

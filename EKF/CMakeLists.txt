@@ -161,4 +161,6 @@ target_link_libraries(ecl_EKF
 		${EKF_LIBS}
 )
 
-target_compile_options(ecl_EKF PRIVATE -fno-associative-math)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+	target_compile_options(ecl_EKF PRIVATE -fno-associative-math)
+endif()

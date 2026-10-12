@@ -36,22 +36,31 @@
 
 #include <matrix/math.hpp>
 
-#include <lib/ringbuffer/TimestampedRingBuffer.hpp>
+#include "../ringbuffer/TimestampedRingBuffer.hpp"
 
-#include <lib/geo/geo.h>
-#include <lib/lat_lon_alt/lat_lon_alt.hpp>
+#include <geo.h>
+#include <lat_lon_alt.hpp>
 
+/**
+ * @brief Propagates high-rate output states and tracks corrections from delayed EKF states.
+ *
+ * The predictor maintains a low-latency attitude, velocity, and position
+ * output between delayed filter updates. It applies EKF state corrections
+ * smoothly to its output history and accounts for the IMU lever arm.
+ */
 class OutputPredictor
 {
 public:
+	/** @brief Construct predictor and initialize output histories. */
 	OutputPredictor()
 	{
 		reset();
 	};
 
+	/** @brief Destroy the predictor and its owned buffers. */
 	~OutputPredictor() = default;
 
-	// modify output filter to match the the EKF state at the fusion time horizon
+	/** @brief Align predictor states with the delayed EKF state at the fusion horizon. */
 	void alignOutputFilter(const matrix::Quatf &quat_state, const matrix::Vector3f &vel_state,
 			       const LatLonAlt &gpos_state);
 	/*
@@ -64,23 +73,32 @@ public:
 	* “Recursive Attitude Estimation in the Presence of Multi-rate and Multi-delay Vector Measurements”
 	* A Khosravian, J Trumpf, R Mahony, T Hamel, Australian National University
 	*/
+	/** @brief Calculate output states. */
 	void calculateOutputStates(const uint64_t time_us, const matrix::Vector3f &delta_angle, const float delta_angle_dt,
 				   const matrix::Vector3f &delta_velocity, const float delta_velocity_dt);
 
+	/** @brief Apply delayed EKF corrections to the current output-state history. */
 	void correctOutputStates(const uint64_t time_delayed_us,
 				 const matrix::Quatf &quat_state, const matrix::Vector3f &vel_state, const LatLonAlt &gpos_state,
 				 const matrix::Vector3f &gyro_bias, const matrix::Vector3f &accel_bias);
 
+	/** @brief Apply an attitude reset delta to the predictor's buffered outputs. */
 	void resetQuaternion(const matrix::Quatf &quat_change);
 
+	/** @brief Apply a north/east velocity reset delta in m/s to buffered outputs. */
 	void resetHorizontalVelocityTo(const matrix::Vector2f &delta_horz_vel);
+	/** @brief Apply a down-velocity reset delta in m/s to buffered outputs. */
 	void resetVerticalVelocityTo(float delta_vert_vel);
 
+	/** @brief Reset buffered global latitude/longitude to the supplied coordinates. */
 	void resetLatLonTo(const double &new_latitude, const double &new_longitude);
+	/** @brief Reset buffered altitude and account for the vertical position change in metres. */
 	void resetAltitudeTo(float new_altitude, float vert_pos_change);
 
+	/** @brief Print predictor diagnostic state. */
 	void print_status();
 
+	/** @brief Allocate both output histories to the requested length and reset them. */
 	bool allocate(uint8_t size)
 	{
 		if (_output_buffer.allocate(size) && _output_vert_buffer.allocate(size)) {
@@ -91,30 +109,39 @@ public:
 		return false;
 	}
 
+	/** @brief Clear output histories and initialize predictor states. */
 	void reset();
 
+	/** @brief Return current low-latency attitude quaternion. */
 	const matrix::Quatf &getQuaternion() const { return _output_new.quat_nominal; }
 
+	/** @brief Return accumulated angular velocity and clear its accumulator, in rad/s. */
 	matrix::Vector3f getAngularVelocityAndResetAccumulator();
 
 	// get a yaw value solely based on bias-removed gyro integration
+	/** @brief Get unaided yaw. */
 	float getUnaidedYaw() const { return _unaided_yaw; }
 
 	// get the velocity of the body frame origin in local NED earth frame
+	/** @brief Get velocity. */
 	matrix::Vector3f getVelocity() const { return _output_new.vel - _vel_imu_rel_body_ned; }
 
 	// get the mean velocity derivative in earth frame since reset (see `resetVelocityDerivativeAccumulation()`)
+	/** @brief Return mean earth-frame velocity derivative since the last reset. */
 	matrix::Vector3f getVelocityDerivative() const;
 
+	/** @brief Clear accumulated velocity-derivative statistics. */
 	void resetVelocityDerivativeAccumulation();
 
 	// get the derivative of the vertical position of the body frame origin in local NED earth frame
+	/** @brief Get vertical position derivative. */
 	float getVerticalPositionDerivative() const { return _output_vert_new.vert_vel - _vel_imu_rel_body_ned(2); }
 
+	/** @brief Return current global body-origin latitude, longitude, and altitude. */
 	LatLonAlt getLatLonAlt() const
 	{
 		// rotate the position of the IMU relative to the boy origin into earth frame
-		const matrix::Vector3f pos_offset_earth{_R_to_earth_now * _imu_pos_body};
+		const matrix::Vector3f pos_offset_earth{_R_to_earth_now * _imu_pos_body}; ///< Stores pos offset earth.
 		// subtract from the EKF position (which is at the IMU) to get position at the body origin
 		return _global_ref + (_output_new.pos - pos_offset_earth);
 	}
@@ -123,8 +150,11 @@ public:
 	// error magnitudes (rad), (m/sec), (m)
 	const matrix::Vector3f &getOutputTrackingError() const { return _output_tracking_error; }
 
+	/** @brief Set IMU lever-arm offset from body origin in body coordinates, metres. */
 	void set_imu_offset(const matrix::Vector3f &offset) { _imu_pos_body = offset; }
+	/** @brief Set position correction time constant in seconds. */
 	void set_pos_correction_tc(const float tau) { _pos_tau = tau; }
+	/** @brief Set velocity correction time constant in seconds. */
 	void set_vel_correction_tc(const float tau) { _vel_tau = tau; }
 
 private:
@@ -137,6 +167,7 @@ private:
 	* This provides an alternative vertical velocity output that is closer to the first derivative
 	* of the position but does degrade tracking relative to the EKF state.
 	*/
+	/** @brief Apply correction to vertical output buffer. */
 	void applyCorrectionToVerticalOutputBuffer(float vert_vel_correction, const float pos_ref_change);
 
 	/*
@@ -144,9 +175,11 @@ private:
 	* The vel and pos state history are corrected individually so they track the EKF states at
 	* the fusion time horizon. This option provides the most accurate tracking of EKF states.
 	*/
+	/** @brief Apply correction to output buffer. */
 	void applyCorrectionToOutputBuffer(const matrix::Vector3f &vel_correction, const matrix::Vector3f &pos_correction);
 
 	// return the square of two floating point numbers - used in auto coded sections
+	/** @brief Return scalar square used in predictor covariance calculations. */
 	static constexpr float sq(float var) { return var * var; }
 
 	struct outputSample {
@@ -163,13 +196,13 @@ private:
 		float    dt{0.f};             ///< delta time (sec)
 	};
 
-	LatLonAlt _global_ref{0.0, 0.0, 0.f};
+	LatLonAlt _global_ref{0.0, 0.0, 0.f}; ///< Stores global ref.
 
-	TimestampedRingBuffer<outputSample> _output_buffer{12};
-	TimestampedRingBuffer<outputVert> _output_vert_buffer{12};
+	TimestampedRingBuffer<outputSample> _output_buffer{12}; ///< Buffer used to retain output buffer.
+	TimestampedRingBuffer<outputVert> _output_vert_buffer{12}; ///< Buffer used to retain output vert buffer.
 
-	matrix::Vector3f _accel_bias{};
-	matrix::Vector3f _gyro_bias{};
+	matrix::Vector3f _accel_bias{}; ///< Stores accel bias.
+	matrix::Vector3f _gyro_bias{}; ///< Stores gyro bias.
 
 	float _dt_update_states_avg{0.005f};  // average imu update period in s
 	float _dt_correct_states_avg{0.010f}; // average update rate of the ekf in s
@@ -194,9 +227,9 @@ private:
 
 	matrix::Vector3f _imu_pos_body{};                ///< xyz position of IMU in body frame (m)
 
-	matrix::Quatf _delta_angle_sum{};
-	float _delta_angle_sum_dt{0.f};
-	float _unaided_yaw{};
+	matrix::Quatf _delta_angle_sum{}; ///< Stores delta angle sum.
+	float _delta_angle_sum_dt{0.f}; ///< Time interval or time constant in seconds: delta angle sum dt.
+	float _unaided_yaw{}; ///< Stores unaided yaw.
 
 	// output complementary filter tuning
 	float _vel_tau{0.25f};                   ///< velocity state correction time constant (1/sec)

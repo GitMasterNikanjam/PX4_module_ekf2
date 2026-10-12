@@ -41,8 +41,8 @@
 
 #include "ekf.h"
 
-#include <mathlib/mathlib.h>
-#include <lib/world_magnetic_model/geo_mag_declination.h>
+#include <mathlib.h>
+#include <geo_mag_declination.h>
 #include <cstdlib>
 
 bool Ekf::isHeightResetRequired() const
@@ -1145,7 +1145,7 @@ bool Ekf::measurementUpdate(VectorState &K, const VectorState &H, const float R,
 	return true;
 }
 
-void Ekf::resetAidSourceStatusZeroInnovation(estimator_aid_source1d_s &status) const
+void Ekf::resetAidSourceStatusZeroInnovation(ekf2::AidSourceStatus1D &status) const
 {
 	status.time_last_fuse = _time_delayed_us;
 
@@ -1160,7 +1160,7 @@ void Ekf::resetAidSourceStatusZeroInnovation(estimator_aid_source1d_s &status) c
 	status.fused = true;
 }
 
-void Ekf::updateAidSourceStatus(estimator_aid_source1d_s &status, const uint64_t &timestamp_sample,
+void Ekf::updateAidSourceStatus(ekf2::AidSourceStatus1D &status, const uint64_t &timestamp_sample,
 				const float &observation, const float &observation_variance,
 				const float &innovation, const float &innovation_variance,
 				float innovation_gate) const

@@ -45,7 +45,7 @@
 #include <ekf_derivation/generated/predict_covariance.h>
 
 #include <math.h>
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
 // Sets initial values for the covariance matrix
 // Do not call before quaternion states have been initialised

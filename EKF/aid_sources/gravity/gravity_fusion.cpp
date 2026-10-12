@@ -44,7 +44,7 @@
 #include <ekf_derivation/generated/compute_gravity_y_innov_var_and_h.h>
 #include <ekf_derivation/generated/compute_gravity_z_innov_var_and_h.h>
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
 void Ekf::controlGravityFusion(const imuSample &imu)
 {

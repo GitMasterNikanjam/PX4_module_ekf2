@@ -45,7 +45,7 @@
 #include <ekf_derivation/generated/compute_sideslip_innov_and_innov_var.h>
 #include <ekf_derivation/generated/compute_sideslip_h.h>
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
 void Ekf::controlBetaFusion(const imuSample &imu_delayed)
 {
@@ -73,7 +73,7 @@ void Ekf::controlBetaFusion(const imuSample &imu_delayed)
 	}
 }
 
-void Ekf::updateSideslip(estimator_aid_source1d_s &aid_src) const
+void Ekf::updateSideslip(ekf2::AidSourceStatus1D &aid_src) const
 {
 	float observation = 0.f;
 	const float R = math::max(sq(_params.ekf2_beta_noise), sq(0.01f)); // observation noise variance
@@ -91,7 +91,7 @@ void Ekf::updateSideslip(estimator_aid_source1d_s &aid_src) const
 			      math::max(_params.ekf2_beta_gate, 1.f)); // innovation gate
 }
 
-bool Ekf::fuseSideslip(estimator_aid_source1d_s &sideslip)
+bool Ekf::fuseSideslip(ekf2::AidSourceStatus1D &sideslip)
 {
 	if (sideslip.innovation_rejected) {
 		return false;

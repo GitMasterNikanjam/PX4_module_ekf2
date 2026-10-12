@@ -37,16 +37,16 @@
  */
 
 #include "ekf.h"
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
-#include <lib/world_magnetic_model/geo_mag_declination.h>
+#include <geo_mag_declination.h>
 
 #include <ekf_derivation/generated/compute_mag_innov_innov_var_and_hx.h>
 
 void Ekf::controlMagFusion(const imuSample &imu_sample)
 {
 	static constexpr const char *AID_SRC_NAME = "mag";
-	estimator_aid_source3d_s &aid_src = _aid_src_mag;
+	ekf2::AidSourceStatus3D &aid_src = _aid_src_mag;
 
 	// reset the flight alignment flag so that the mag fields will be
 	//  re-initialised next time we achieve flight altitude

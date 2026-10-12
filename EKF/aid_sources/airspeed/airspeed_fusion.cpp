@@ -48,7 +48,7 @@
 #include <ekf_derivation/generated/compute_airspeed_innov_and_innov_var.h>
 #include <ekf_derivation/generated/compute_wind_init_and_cov_from_airspeed.h>
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
 void Ekf::controlAirDataFusion(const imuSample &imu_delayed)
 {
@@ -166,7 +166,7 @@ void Ekf::controlAirDataFusion(const imuSample &imu_delayed)
 	}
 }
 
-void Ekf::updateAirspeed(const airspeedSample &airspeed_sample, estimator_aid_source1d_s &aid_src) const
+void Ekf::updateAirspeed(const airspeedSample &airspeed_sample, ekf2::AidSourceStatus1D &aid_src) const
 {
 	// Variance for true airspeed measurement - (m/sec)^2
 	const float R = sq(math::constrain(_params.ekf2_eas_noise, 0.5f, 5.0f) *
@@ -186,7 +186,7 @@ void Ekf::updateAirspeed(const airspeedSample &airspeed_sample, estimator_aid_so
 			      math::max(_params.ekf2_tas_gate, 1.f)); // innovation gate
 }
 
-void Ekf::fuseAirspeed(const airspeedSample &airspeed_sample, estimator_aid_source1d_s &aid_src)
+void Ekf::fuseAirspeed(const airspeedSample &airspeed_sample, ekf2::AidSourceStatus1D &aid_src)
 {
 	if (aid_src.innovation_rejected) {
 		return;

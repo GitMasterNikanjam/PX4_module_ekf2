@@ -40,7 +40,7 @@
 
 #include <aid_sources/range_finder/sensor_range_finder.hpp>
 
-#include <lib/matrix/matrix/math.hpp>
+#include <matrix/math.hpp>
 
 namespace estimator
 {

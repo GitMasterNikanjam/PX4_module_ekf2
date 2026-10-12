@@ -40,22 +40,30 @@
 #define ExternalVisionVel_H
 
 #include "ekf.h"
-#include <uORB/topics/estimator_aid_source3d.h>
 
+/**
+ * @brief Common conversion and fusion logic for external-vision velocity.
+ *
+ * Derived implementations transform supported external velocity frames into
+ * the EKF earth frame, account for sensor lever arms, and provide reset/fusion
+ * operations. Measurements are in m/s and covariance values in (m/s)^2.
+ */
 class ExternalVisionVel
 {
 public:
+	/** @brief Prepare an external-vision velocity sample for frame conversion and fusion. */
 	ExternalVisionVel(Ekf &ekf_instance, const extVisionSample &vision_sample, const float ekf2_evv_noise,
 			  const imuSample &imu_sample) : _ekf(ekf_instance), _sample(vision_sample)
 	{
 		_min_variance = sq(ekf2_evv_noise);
-		const Vector3f angular_velocity = imu_sample.delta_ang / imu_sample.delta_ang_dt - _ekf._state.gyro_bias;
-		Vector3f position_offset_body = _ekf._params.ev_pos_body - _ekf._params.imu_pos_body;
+		const Vector3f angular_velocity = imu_sample.delta_ang / imu_sample.delta_ang_dt - _ekf._state.gyro_bias; ///< Stores angular velocity.
+		Vector3f position_offset_body = _ekf._params.ev_pos_body - _ekf._params.imu_pos_body; ///< Stores position offset body.
 		_velocity_offset_body = angular_velocity % position_offset_body;
 	}
 
 	virtual ~ExternalVisionVel() = default;
-	virtual bool fuseVelocity(estimator_aid_source3d_s &aid_src, float gate)
+	/** @brief Fuse velocity. */
+	virtual bool fuseVelocity(ekf2::AidSourceStatus3D &aid_src, float gate)
 	{
 		_ekf.fuseLocalFrameVelocity(aid_src, _sample.time_us, _measurement,
 					    _measurement_var, gate);
@@ -63,16 +71,19 @@ public:
 
 	}
 
+	/** @brief Reset velocity. */
 	virtual void resetVelocity()
 	{
 		_ekf.resetVelocityTo(_measurement, _measurement_var);
 	}
 
+	/** @brief Reset vertical velocity. */
 	void resetVerticalVelocity()
 	{
 		_ekf.resetVerticalVelocityTo(_measurement(2), _measurement_var(2));
 	}
 
+	/** @brief Clamp converted external-vision velocity variances to the configured minimum. */
 	void enforceMinimumVariance()
 	{
 		_min_variance = math::max(_min_variance, sq(0.01f));
@@ -82,17 +93,18 @@ public:
 		}
 	}
 
-	Ekf &_ekf;
-	const extVisionSample &_sample;
-	float _min_variance;
-	Vector3f _measurement{NAN, NAN, NAN};
-	Vector3f _measurement_var;
-	Vector3f _velocity_offset_body;
+	Ekf &_ekf; ///< Stores ekf.
+	const extVisionSample &_sample; ///< Stores sample.
+	float _min_variance; ///< Variance or covariance value: min variance.
+	Vector3f _measurement{NAN, NAN, NAN}; ///< Stores measurement.
+	Vector3f _measurement_var; ///< Variance or covariance value: measurement var.
+	Vector3f _velocity_offset_body; ///< Stores velocity offset body.
 };
 
 class EvVelBodyFrameFrd : public ExternalVisionVel
 {
 public:
+	/** @brief Construct velocity adapter for body-frame FRD external-vision data. */
 	EvVelBodyFrameFrd(Ekf &ekf_instance, extVisionSample &vision_sample, const float ekf2_evv_noise,
 			  const imuSample &imu_sample) :
 		ExternalVisionVel(ekf_instance, vision_sample, ekf2_evv_noise, imu_sample)
@@ -102,6 +114,7 @@ public:
 		enforceMinimumVariance();
 	}
 
+	/** @brief Reset velocity. */
 	void resetVelocity() override
 	{
 		const matrix::SquareMatrix3f rotated_variance = _ekf._R_to_earth * matrix::diag(
@@ -111,6 +124,7 @@ public:
 		_ekf.resetVelocityTo(_ekf._R_to_earth * _measurement, measurement_variance_ekf_frame);
 	}
 
+	/** @brief Reset vertical velocity. */
 	void resetVerticalVelocity()
 	{
 		const matrix::SquareMatrix3f rotated_variance = _ekf._R_to_earth * matrix::diag(
@@ -121,7 +135,8 @@ public:
 					     measurement_variance_ekf_frame(2));
 	}
 
-	bool fuseVelocity(estimator_aid_source3d_s &aid_src, float gate) override
+	/** @brief Fuse velocity. */
+	bool fuseVelocity(ekf2::AidSourceStatus3D &aid_src, float gate) override
 	{
 		_ekf.fuseBodyFrameVelocity(aid_src, _sample.time_us, _measurement,
 					   _measurement_var, gate);
@@ -132,11 +147,12 @@ public:
 class EvVelLocalFrameNed : public ExternalVisionVel
 {
 public:
+	/** @brief Construct velocity adapter for local-frame NED external-vision data. */
 	EvVelLocalFrameNed(Ekf &ekf_instance, extVisionSample &vision_sample, const float ekf2_evv_noise,
 			   const imuSample &imu_sample) :
 		ExternalVisionVel(ekf_instance, vision_sample, ekf2_evv_noise, imu_sample)
 	{
-		const Vector3f velocity_offset_earth = _ekf._R_to_earth * _velocity_offset_body;
+		const Vector3f velocity_offset_earth = _ekf._R_to_earth * _velocity_offset_body; ///< Stores velocity offset earth.
 
 		if (_ekf._control_status.flags.yaw_align) {
 			_measurement = _sample.vel - velocity_offset_earth;
@@ -149,11 +165,12 @@ public:
 class EvVelLocalFrameFrd : public ExternalVisionVel
 {
 public:
+	/** @brief Construct velocity adapter for local-frame FRD external-vision data. */
 	EvVelLocalFrameFrd(Ekf &ekf_instance, extVisionSample &vision_sample, const float ekf2_evv_noise,
 			   const imuSample &imu_sample) :
 		ExternalVisionVel(ekf_instance,	vision_sample, ekf2_evv_noise, imu_sample)
 	{
-		const Vector3f velocity_offset_earth = _ekf._R_to_earth * _velocity_offset_body;
+		const Vector3f velocity_offset_earth = _ekf._R_to_earth * _velocity_offset_body; ///< Stores velocity offset earth.
 
 		if (_ekf._control_status.flags.ev_yaw) {
 			// Using EV frame

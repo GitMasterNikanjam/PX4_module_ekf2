@@ -41,19 +41,31 @@
 #include "bias_estimator.hpp"
 #include "../common.h"
 
+/**
+ * @brief Bias estimator for a height source relative to the selected reference.
+ *
+ * It learns a bias only when this sensor is not the active reference and its
+ * fusion is active, preventing the reference source from estimating its own
+ * offset. Bias values and variances use metres and square metres.
+ */
 class HeightBiasEstimator: public BiasEstimator
 {
 public:
+	/** @brief Construct a height-bias estimator for a sensor and its reference source. */
 	HeightBiasEstimator(HeightSensor sensor, const HeightSensor &sensor_ref):
 		BiasEstimator(0.f, 0.f),
 		_sensor(sensor),
 		_sensor_ref(sensor_ref)
 	{}
+	/** @brief Destroy the height-bias estimator. */
 	virtual ~HeightBiasEstimator() = default;
 
+	/** @brief Enable prediction and fusion of this height-source bias. */
 	void setFusionActive() { _is_sensor_fusion_active = true; }
+	/** @brief Disable prediction and fusion of this height-source bias. */
 	void setFusionInactive() { _is_sensor_fusion_active = false; }
 
+	/** @brief Predict height bias only while this non-reference sensor is actively fused. */
 	virtual void predict(float dt) override
 	{
 		if ((_sensor_ref != _sensor) && _is_sensor_fusion_active) {
@@ -61,6 +73,7 @@ public:
 		}
 	}
 
+	/** @brief Fuse bias. */
 	virtual void fuseBias(float bias, float bias_var) override
 	{
 		if ((_sensor_ref != _sensor) && _is_sensor_fusion_active) {
@@ -69,8 +82,8 @@ public:
 	}
 
 private:
-	const HeightSensor _sensor;
-	const HeightSensor &_sensor_ref;
+	const HeightSensor _sensor; ///< Stores sensor.
+	const HeightSensor &_sensor_ref; ///< Stores sensor ref.
 
 	bool _is_sensor_fusion_active{false}; // TODO: replace by const ref and remove setter when migrating _control_status.flags from union to bool
 };

@@ -33,7 +33,7 @@
 
 #include "ekf.h"
 
-void Ekf::updateVerticalPositionAidStatus(estimator_aid_source1d_s &aid_src, const uint64_t &time_us,
+void Ekf::updateVerticalPositionAidStatus(ekf2::AidSourceStatus1D &aid_src, const uint64_t &time_us,
 		const float observation, const float observation_variance, const float innovation_gate) const
 {
 	float innovation = -_gpos.altitude() - observation;
@@ -53,7 +53,7 @@ void Ekf::updateVerticalPositionAidStatus(estimator_aid_source1d_s &aid_src, con
 	}
 }
 
-bool Ekf::fuseHorizontalPosition(estimator_aid_source2d_s &aid_src)
+bool Ekf::fuseHorizontalPosition(ekf2::AidSourceStatus2D &aid_src)
 {
 	// x & y
 	if (!aid_src.innovation_rejected) {
@@ -74,7 +74,7 @@ bool Ekf::fuseHorizontalPosition(estimator_aid_source2d_s &aid_src)
 	return aid_src.fused;
 }
 
-bool Ekf::fuseVerticalPosition(estimator_aid_source1d_s &aid_src)
+bool Ekf::fuseVerticalPosition(ekf2::AidSourceStatus1D &aid_src)
 {
 	// z
 	if (!aid_src.innovation_rejected) {

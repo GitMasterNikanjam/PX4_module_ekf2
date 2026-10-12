@@ -41,7 +41,7 @@
 
 
 #include "ekf.h"
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
 void Ekf::controlFusionModes(const imuSample &imu_delayed)
 {

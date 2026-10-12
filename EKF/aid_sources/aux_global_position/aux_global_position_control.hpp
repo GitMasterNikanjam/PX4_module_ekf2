@@ -34,6 +34,15 @@
 #ifndef EKF_AUX_GLOBAL_POSITION_CONTROL_HPP
 #define EKF_AUX_GLOBAL_POSITION_CONTROL_HPP
 
+/**
+ * @file aux_global_position_control.hpp
+ * @brief PX4 uORB source adapter for auxiliary global-position fusion.
+ *
+ * Defines per-slot buffering and publication support used by
+ * AuxGlobalPosition. This code requires PX4 uORB and parameter facilities and
+ * is enabled only in the corresponding PX4 module build.
+ */
+
 #include "../../common.h"
 
 #if defined(CONFIG_EKF2_AUX_GLOBAL_POSITION) && defined(MODULE_NAME)
@@ -45,31 +54,46 @@
 
 class Ekf;
 
+/**
+ * @brief Buffers and fuses one auxiliary global-position sensor instance.
+ *
+ * The adapter converts PX4 topic samples into delayed EKF observations and
+ * publishes aid-source diagnostics. It is a PX4 integration component rather
+ * than a standalone host API.
+ */
 class AgpSource
 {
 public:
+	/** @brief Construct one PX4 auxiliary global-position source for the given slot. */
 	AgpSource(int slot);
 	~AgpSource() = default;
 
+	/** @brief Buffer a PX4 topic observation using the delayed IMU sample for alignment. */
 	void bufferData(const aux_global_position_s &msg, const estimator::imuSample &imu_delayed);
+	/** @brief Process buffered data and attempt fusion into the EKF. */
 	bool update(Ekf &ekf, const estimator::imuSample &imu_delayed);
+	/** @brief Advertise this source's PX4 aid-source diagnostic topic. */
 	void advertise() { _aid_src_pub.advertise(); }
+	/** @brief Define source-specific PX4 parameters. */
 	void initParams();
+	/** @brief Refresh cached source parameters from PX4 parameter storage. */
 	void updateParams();
 
+	/** @brief Return filtered normalized innovation test ratio. */
 	float getTestRatioFiltered() const { return _test_ratio_filtered; }
+	/** @brief Return whether this source is actively fusing. */
 	bool isFusing() const { return _state == State::kActive; }
 
 private:
 	struct AuxGlobalPositionSample {
-		uint64_t time_us{};
-		uint8_t id{};
-		double latitude{};
-		double longitude{};
-		float altitude_amsl{};
-		float eph{};
-		float epv{};
-		uint8_t lat_lon_reset_counter{};
+		uint64_t time_us{}; ///< Timestamp or duration value in microseconds: time us.
+		uint8_t id{}; ///< Stores id.
+		double latitude{}; ///< Stores latitude.
+		double longitude{}; ///< Stores longitude.
+		float altitude_amsl{}; ///< Stores altitude amsl.
+		float eph{}; ///< Stores eph.
+		float epv{}; ///< Stores epv.
+		uint8_t lat_lon_reset_counter{}; ///< Stores lat lon reset counter.
 	};
 
 	enum class Ctrl : uint8_t {
@@ -89,36 +113,38 @@ private:
 	};
 
 	struct reset_counters_s {
-		uint8_t lat_lon{};
+		uint8_t lat_lon{}; ///< Stores lat lon.
 	};
 
 	uORB::PublicationMulti<estimator_aid_source2d_s> _aid_src_pub{ORB_ID(estimator_aid_src_aux_global_position)};
 
-	TimestampedRingBuffer<AuxGlobalPositionSample> _buffer{20};
-	State _state{State::kStopped};
-	estimator_aid_source2d_s _aid_src{};
-	float _test_ratio_filtered{0.f};
-	uint64_t _time_last_buffer_push{0};
-	reset_counters_s _reset_counters{};
-	int _slot;
+	TimestampedRingBuffer<AuxGlobalPositionSample> _buffer{20}; ///< Buffer used to retain buffer.
+	State _state{State::kStopped}; ///< Stores state.
+	estimator_aid_source2d_s _aid_src{}; ///< Innovation and fusion status for .
+	float _test_ratio_filtered{0.f}; ///< Stores test ratio filtered.
+	uint64_t _time_last_buffer_push{0}; ///< Timestamp or duration value in microseconds: time last buffer push.
+	reset_counters_s _reset_counters{}; ///< Stores reset counters.
+	int _slot; ///< Stores slot.
 
 	struct ParamHandles {
-		param_t ctrl{PARAM_INVALID};
-		param_t mode{PARAM_INVALID};
-		param_t delay{PARAM_INVALID};
-		param_t noise{PARAM_INVALID};
-		param_t gate{PARAM_INVALID};
+		param_t ctrl{PARAM_INVALID}; ///< Stores ctrl.
+		param_t mode{PARAM_INVALID}; ///< Stores mode.
+		param_t delay{PARAM_INVALID}; ///< Stores delay.
+		param_t noise{PARAM_INVALID}; ///< Noise tuning value: noise.
+		param_t gate{PARAM_INVALID}; ///< Stores gate.
 	} _param_handles;
 
 	struct Params {
-		int32_t ctrl{0};
-		int32_t mode{0};
-		float delay{0.f};
-		float noise{10.f};
-		float gate{3.f};
+		int32_t ctrl{0}; ///< Stores ctrl.
+		int32_t mode{0}; ///< Stores mode.
+		float delay{0.f}; ///< Stores delay.
+		float noise{10.f}; ///< Noise tuning value: noise.
+		float gate{3.f}; ///< Stores gate.
 	} _params;
 
+	/** @brief Check whether current EKF conditions permit resetting to this source. */
 	bool isResetAllowed(const Ekf &ekf) const;
+	/** @brief Check whether sensor data exceeded the supplied timeout period. */
 	bool isTimedOut(uint64_t last_sensor_timestamp, uint64_t time_delayed_us, uint64_t timeout_period) const;
 };
 

@@ -40,44 +40,61 @@
 #ifndef EKF_RANGE_FINDER_CONSISTENCY_CHECK_HPP
 #define EKF_RANGE_FINDER_CONSISTENCY_CHECK_HPP
 
-#include <mathlib/math/filter/AlphaFilter.hpp>
+#include <math/filter/AlphaFilter.hpp>
 
+/**
+ * @brief Checks range-derived vertical motion against inertial predictions.
+ *
+ * Filtered innovations and test ratios expose whether range data is
+ * kinematically consistent enough for fusion. Distances use metres and update
+ * timing follows the estimator's microsecond clock.
+ */
 class RangeFinderConsistencyCheck final
 {
 public:
+	/** @brief Construct an uninitialized range consistency checker. */
 	RangeFinderConsistencyCheck() = default;
+	/** @brief Destroy the consistency checker. */
 	~RangeFinderConsistencyCheck() = default;
 
+	/** @brief Update range/inertial vertical-motion consistency using metre and second units. */
 	void update(float dist_bottom, float dist_bottom_var, float vz, float vz_var, bool horizontal_motion, uint64_t time_us);
 
+	/** @brief Set normalized consistency gate size. */
 	void setGate(float gate) { _gate = gate; }
 
+	/** @brief Return current normalized consistency-test ratio. */
 	float getTestRatio() const { return _test_ratio; }
+	/** @brief Return filtered signed consistency-test ratio. */
 	float getSignedTestRatioLpf() const { return _signed_test_ratio_lpf.getState(); }
+	/** @brief Return current range/inertial innovation in metres. */
 	float getInnov() const { return _innov; }
+	/** @brief Return current innovation variance in square metres. */
 	float getInnovVar() const { return _innov_var; }
+	/** @brief Return whether the latest consistency decision passes. */
 	bool isKinematicallyConsistent() const { return _is_kinematically_consistent; }
 
 private:
+	/** @brief Update consistency timing and decision using vertical speed in m/s. */
 	void updateConsistency(float vz, uint64_t time_us);
 
-	uint64_t _time_last_update_us{};
-	float _dist_bottom_prev{};
+	uint64_t _time_last_update_us{}; ///< Timestamp or duration value in microseconds: time last update us.
+	float _dist_bottom_prev{}; ///< Stores dist bottom prev.
 
-	float _test_ratio{};
+	float _test_ratio{}; ///< Stores test ratio.
 	AlphaFilter<float> _signed_test_ratio_lpf{}; // average signed test ratio used to detect a bias in the data
-	float _gate{.2f};
-	float _innov{};
-	float _innov_var{};
+	float _gate{.2f}; ///< Stores gate.
+	float _innov{}; ///< Stores innov.
+	float _innov_var{}; ///< Variance or covariance value: innov var.
 
-	bool _is_kinematically_consistent{true};
-	uint64_t _time_last_inconsistent_us{};
-	uint64_t _time_last_horizontal_motion{};
+	bool _is_kinematically_consistent{true}; ///< State flag indicating is kinematically consistent.
+	uint64_t _time_last_inconsistent_us{}; ///< Timestamp or duration value in microseconds: time last inconsistent us.
+	uint64_t _time_last_horizontal_motion{}; ///< Timestamp or duration value in microseconds: time last horizontal motion.
 
-	static constexpr float _signed_test_ratio_tau = 2.f;
+	static constexpr float _signed_test_ratio_tau = 2.f; ///< Compile-time constant defining signed test ratio tau.
 
-	static constexpr float _min_vz_for_valid_consistency = .5f;
-	static constexpr uint64_t _consistency_hyst_time_us = 1e6;
+	static constexpr float _min_vz_for_valid_consistency = .5f; ///< Compile-time constant defining min vz for valid consistency.
+	static constexpr uint64_t _consistency_hyst_time_us = 1e6; ///< Compile-time constant defining consistency hyst time us.
 };
 
 #endif // !EKF_RANGE_FINDER_CONSISTENCY_CHECK_HPP

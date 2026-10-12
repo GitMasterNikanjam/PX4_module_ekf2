@@ -36,19 +36,28 @@
 
 #include "EstimatorAidSource.hpp"
 
+/**
+ * @brief Applies a zero-angular-rate constraint when the vehicle is stationary.
+ *
+ * The update uses delayed IMU increments and estimator rest/validity logic to
+ * constrain gyro bias. It returns whether a measurement update was applied.
+ */
 class ZeroGyroUpdate : public EstimatorAidSource
 {
 public:
+	/** @brief Construct zero-angular-rate aiding state. */
 	ZeroGyroUpdate();
 	virtual ~ZeroGyroUpdate() = default;
 
+	/** @brief Clear accumulated zero-rate update history. */
 	void reset() override;
+	/** @brief Apply zero-angular-rate constraints when stationary conditions pass. */
 	bool update(Ekf &ekf, const estimator::imuSample &imu_delayed) override;
 
 private:
 
-	matrix::Vector3f _zgup_delta_ang{};
-	float _zgup_delta_ang_dt{0.f};
+	matrix::Vector3f _zgup_delta_ang{}; ///< Stores zgup delta ang.
+	float _zgup_delta_ang_dt{0.f}; ///< Time interval or time constant in seconds: zgup delta ang dt.
 };
 
 #endif // !EKF_ZERO_GYRO_UPDATE_HPP

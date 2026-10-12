@@ -1,257 +1,116 @@
-/****************************************************************************
- *
- *   Copyright (c) 2020-2021 PX4 Development Team. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- * 3. Neither the name PX4 nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- ****************************************************************************/
+/**
+ * @file EKF2Selector.hpp
+ * @brief Host-side selection policy for multiple EKF instances.
+ */
+#pragma once
 
-#ifndef EKF2SELECTOR_HPP
-#define EKF2SELECTOR_HPP
+#include <cmath>
+#include <cstdint>
 
-#include <px4_platform_common/px4_config.h>
-#include <px4_platform_common/log.h>
-#include <px4_platform_common/module.h>
-#include <px4_platform_common/module_params.h>
-#include <px4_platform_common/time.h>
-#include <lib/hysteresis/hysteresis.h>
-#include <lib/mathlib/mathlib.h>
-#include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
-#include <uORB/Subscription.hpp>
-#include <uORB/SubscriptionCallback.hpp>
-#include <uORB/Publication.hpp>
-#include <uORB/topics/estimator_selector_status.h>
-#include <uORB/topics/estimator_status.h>
-#include <uORB/topics/parameter_update.h>
-#include <uORB/topics/sensor_selection.h>
-#include <uORB/topics/sensors_status_imu.h>
-#include <uORB/topics/vehicle_attitude.h>
-#include <uORB/topics/vehicle_local_position.h>
-#include <uORB/topics/vehicle_global_position.h>
-#include <uORB/topics/vehicle_odometry.h>
-#include <uORB/topics/wind.h>
-
-#if CONSTRAINED_MEMORY
-# define EKF2_MAX_INSTANCES 2
-#else
-# define EKF2_MAX_INSTANCES 9
-#endif
-
-using namespace time_literals;
-
-class EKF2Selector : public ModuleParams, public px4::ScheduledWorkItem
+/**
+ * @brief Selects among host-managed EKF instances.
+ *
+ * The selector does not inspect EKF internals. The host supplies each
+ * instance's health, fault state, and aggregate error score, and owns the EKF
+ * objects and their scheduling. Lower finite scores are preferred. A healthy
+ * current instance is retained until a candidate has less than half its score
+ * and the current selection has remained stable for at least one second.
+ * An unhealthy/faulted current instance is replaced immediately. A valid
+ * requested instance takes priority over score-based selection.
+ *
+ * Call update() regularly with a monotonic timestamp. The object stores only
+ * the selected index and the time at which that selection began.
+ */
+class EKF2Selector
 {
 public:
-	EKF2Selector();
-	~EKF2Selector() override;
+	/** @brief Sentinel returned when no usable instance is selected. */
+	static constexpr uint8_t INVALID_INSTANCE = UINT8_MAX; ///< Compile-time constant defining INVALID INSTANCE.
+	/** @brief Minimum dwell time before score-based switching, in microseconds. */
+	static constexpr uint64_t MIN_SELECTION_TIME_US = 1'000'000; ///< Compile-time constant defining MIN SELECTION TIME US.
+	/** @brief Candidate score must be below this fraction of current score. */
+	static constexpr float SCORE_SWITCH_RATIO = 0.5f; ///< Compile-time constant defining SCORE SWITCH RATIO.
 
-	void Stop();
+	/** @brief Host-provided status and aggregate score for one EKF instance. */
+	struct InstanceStatus {
+		bool healthy{false}; ///< Whether the instance currently provides usable estimates.
+		bool fault{false}; ///< Whether a detected fault disqualifies this instance.
+		float error_score{NAN}; ///< Finite lower-is-better score; NaN/Inf excludes the instance as a candidate.
+	};
 
-	void PrintStatus();
-
-	void RequestInstance(uint8_t instance) { _request_instance.store(instance); }
-
-private:
-	static constexpr uint8_t INVALID_INSTANCE{UINT8_MAX};
-	static constexpr uint64_t FILTER_UPDATE_PERIOD{10_ms};
-
-	void Run() override;
-
-	void PrintInstanceChange(const uint8_t old_instance, uint8_t new_instance);
-
-	void PublishEstimatorSelectorStatus();
-	void PublishVehicleAttitude();
-	void PublishVehicleLocalPosition();
-	void PublishVehicleGlobalPosition();
-	void PublishVehicleOdometry();
-	void PublishWindEstimate();
-
-	bool SelectInstance(uint8_t instance);
-
-	// Update the error scores for all available instances
-	bool UpdateErrorScores();
-
-	// Subscriptions (per estimator instance)
-	struct EstimatorInstance {
-
-		EstimatorInstance(EKF2Selector *selector, uint8_t i) :
-			estimator_attitude_sub{selector, ORB_ID(estimator_attitude), i},
-			estimator_status_sub{selector, ORB_ID(estimator_status), i},
-			estimator_local_position_sub{ORB_ID(estimator_local_position), i},
-			estimator_global_position_sub{ORB_ID(estimator_global_position), i},
-			estimator_odometry_sub{ORB_ID(estimator_odometry), i},
-			estimator_wind_sub{ORB_ID(estimator_wind), i},
-			instance(i)
-		{
-			healthy.set_hysteresis_time_from(false, 1_s);
+	/**
+	 * @brief Update selection using current instance status.
+	 * @param instances Array of `count` status records; may be null only when count is zero.
+	 * @param count Number of available instances.
+	 * @param now_us Current monotonic time in microseconds.
+	 * @param requested_instance Optional preferred index. A healthy, non-faulted
+	 *        requested instance is selected immediately; use INVALID_INSTANCE
+	 *        for automatic selection.
+	 * @return Selected index, or INVALID_INSTANCE if no usable candidate exists.
+	 *
+	 * A null array or zero count clears the selection. If no healthy, non-faulted
+	 * candidate has a finite score, the selection is also cleared. An explicitly
+	 * requested healthy instance may be selected even when its score is not finite.
+	 */
+	/** @brief Re-evaluate requested and automatic candidates and return the selected instance. */
+	uint8_t update(const InstanceStatus *instances, uint8_t count, uint64_t now_us,
+		       uint8_t requested_instance = INVALID_INSTANCE)
+	{
+		if (instances == nullptr || count == 0) {
+			_selected = INVALID_INSTANCE;
+			return _selected;
 		}
 
-		uORB::SubscriptionCallbackWorkItem estimator_attitude_sub;
-		uORB::SubscriptionCallbackWorkItem estimator_status_sub;
+		if (requested_instance < count && instances[requested_instance].healthy && !instances[requested_instance].fault) {
+			select(requested_instance, now_us);
+			return _selected;
+		}
 
-		uORB::Subscription estimator_local_position_sub;
-		uORB::Subscription estimator_global_position_sub;
-		uORB::Subscription estimator_odometry_sub;
-		uORB::Subscription estimator_wind_sub;
+		uint8_t best = INVALID_INSTANCE; ///< Stores best.
 
-		uint64_t timestamp_last{0};
+		for (uint8_t i = 0; i < count; ++i) {
+			if (instances[i].healthy && !instances[i].fault && std::isfinite(instances[i].error_score)
+			    && (best == INVALID_INSTANCE || instances[i].error_score < instances[best].error_score)) {
+				best = i;
+			}
+		}
 
-		uint32_t accel_device_id{0};
-		uint32_t gyro_device_id{0};
-		uint32_t baro_device_id{0};
-		uint32_t mag_device_id{0};
+		if (best == INVALID_INSTANCE) {
+			_selected = INVALID_INSTANCE;
+			return _selected;
+		}
 
-		hrt_abstime time_last_selected{0};
-		hrt_abstime time_last_no_warning{0};
+		if (_selected >= count || !instances[_selected].healthy || instances[_selected].fault) {
+			select(best, now_us);
+			return _selected;
+		}
 
-		float combined_test_ratio{NAN};
-		float relative_test_ratio{NAN};
+		const float current_score = instances[_selected].error_score; ///< Stores current score.
+		const bool sufficient_improvement = !std::isfinite(current_score)
+					    || instances[best].error_score < current_score * SCORE_SWITCH_RATIO;
+		const bool selection_is_stable = now_us >= _selected_since_us
+					 && now_us - _selected_since_us >= MIN_SELECTION_TIME_US;
 
-		systemlib::Hysteresis healthy{false};
+		if (best != _selected && sufficient_improvement && selection_is_stable) {
+			select(best, now_us);
+		}
 
-		bool warning{false};
-		bool filter_fault{false};
-		bool timeout{false};
+		return _selected;
+	}
 
-		uint8_t healthy_count{0};
+	/** @brief Return the index selected by the latest update(), if any. */
+	uint8_t selectedInstance() const { return _selected; }
 
-		const uint8_t instance;
-	};
+private:
+	/** @brief Store a new selected index and its selection start time. */
+	void select(uint8_t instance, uint64_t now_us)
+	{
+		if (_selected != instance) {
+			_selected = instance;
+			_selected_since_us = now_us;
+		}
+	}
 
-	static constexpr float _rel_err_score_lim{1.0f}; // +- limit applied to the relative error score
-	static constexpr float _rel_err_thresh{0.5f};    // the relative score difference needs to be greater than this to switch from an otherwise healthy instance
-
-	EstimatorInstance _instance[EKF2_MAX_INSTANCES] {
-		{this, 0},
-		{this, 1},
-#if EKF2_MAX_INSTANCES > 2
-		{this, 2},
-		{this, 3},
-#if EKF2_MAX_INSTANCES > 4
-		{this, 4},
-		{this, 5},
-		{this, 6},
-		{this, 7},
-		{this, 8},
-#endif
-#endif
-	};
-
-	static constexpr uint8_t IMU_STATUS_SIZE = (sizeof(sensors_status_imu_s::gyro_inconsistency_rad_s) / sizeof(
-				sensors_status_imu_s::gyro_inconsistency_rad_s[0]));
-	static_assert(IMU_STATUS_SIZE == sizeof(estimator_selector_status_s::accumulated_gyro_error) / sizeof(
-			      estimator_selector_status_s::accumulated_gyro_error[0]),
-		      "increase estimator_selector_status_s::accumulated_gyro_error size");
-	static_assert(IMU_STATUS_SIZE == sizeof(estimator_selector_status_s::accumulated_accel_error) / sizeof(
-			      estimator_selector_status_s::accumulated_accel_error[0]),
-		      "increase estimator_selector_status_s::accumulated_accel_error size");
-	static_assert(EKF2_MAX_INSTANCES <= sizeof(estimator_selector_status_s::combined_test_ratio) / sizeof(
-			      estimator_selector_status_s::combined_test_ratio[0]),
-		      "increase estimator_selector_status_s::combined_test_ratio size");
-
-	float _accumulated_gyro_error[IMU_STATUS_SIZE] {};
-	float _accumulated_accel_error[IMU_STATUS_SIZE] {};
-	hrt_abstime _last_update_us{0};
-	bool _gyro_fault_detected{false};
-	bool _accel_fault_detected{false};
-
-	uint8_t _available_instances{0};
-	uint8_t _selected_instance{INVALID_INSTANCE};
-	px4::atomic<uint8_t> _request_instance{INVALID_INSTANCE};
-
-	uint32_t _instance_changed_count{0};
-	hrt_abstime _last_instance_change{0};
-
-	hrt_abstime _last_status_publish{0};
-	bool _selector_status_publish{false};
-
-	// vehicle_attitude: reset counters
-	vehicle_attitude_s _attitude_last{};
-	matrix::Quatf _delta_q_reset{};
-	uint8_t _quat_reset_counter{0};
-
-	// vehicle_local_position: reset counters
-	vehicle_local_position_s _local_position_last{};
-	matrix::Vector2f _delta_xy_reset{};
-	float _delta_z_reset{0.f};
-	matrix::Vector2f _delta_vxy_reset{};
-	float _delta_vz_reset{0.f};
-	float _delta_heading_reset{0};
-	float _delta_hagl_reset{0.f};
-
-	uint8_t _xy_reset_counter{0};
-	uint8_t _z_reset_counter{0};
-	uint8_t _vxy_reset_counter{0};
-	uint8_t _vz_reset_counter{0};
-	uint8_t _heading_reset_counter{0};
-	uint8_t _hagl_reset_counter{0};
-
-	// vehicle_odometry
-	vehicle_odometry_s _odometry_last{};
-	uint8_t _odometry_reset_counter{0};
-
-	// vehicle_global_position: reset counters
-	vehicle_global_position_s _global_position_last{};
-	double _delta_lat_reset{0};
-	double _delta_lon_reset{0};
-	float _delta_alt_reset{0.f};
-	float _delta_terrain_reset{0.f};
-
-	uint8_t _lat_lon_reset_counter{0};
-	uint8_t _alt_reset_counter{0};
-	uint8_t _terrain_reset_counter{0};
-
-	// wind estimate
-	wind_s _wind_last{};
-
-	uint8_t _attitude_instance_prev{INVALID_INSTANCE};
-	uint8_t _local_position_instance_prev{INVALID_INSTANCE};
-	uint8_t _global_position_instance_prev{INVALID_INSTANCE};
-	uint8_t _odometry_instance_prev{INVALID_INSTANCE};
-
-	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
-	uORB::Subscription _sensors_status_imu{ORB_ID(sensors_status_imu)};
-
-	// Publications
-	uORB::Publication<estimator_selector_status_s> _estimator_selector_status_pub{ORB_ID(estimator_selector_status)};
-	uORB::Publication<sensor_selection_s>          _sensor_selection_pub{ORB_ID(sensor_selection)};
-	uORB::Publication<vehicle_attitude_s>          _vehicle_attitude_pub{ORB_ID(vehicle_attitude)};
-	uORB::Publication<vehicle_global_position_s>   _vehicle_global_position_pub{ORB_ID(vehicle_global_position)};
-	uORB::Publication<vehicle_local_position_s>    _vehicle_local_position_pub{ORB_ID(vehicle_local_position)};
-	uORB::Publication<vehicle_odometry_s>          _vehicle_odometry_pub{ORB_ID(vehicle_odometry)};
-	uORB::Publication<wind_s>             _wind_pub{ORB_ID(wind)};
-
-	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::EKF2_SEL_ERR_RED>) _param_ekf2_sel_err_red,
-		(ParamFloat<px4::params::EKF2_SEL_IMU_RAT>) _param_ekf2_sel_imu_angle_rate,
-		(ParamFloat<px4::params::EKF2_SEL_IMU_ANG>) _param_ekf2_sel_imu_angle,
-		(ParamFloat<px4::params::EKF2_SEL_IMU_ACC>) _param_ekf2_sel_imu_accel,
-		(ParamFloat<px4::params::EKF2_SEL_IMU_VEL>) _param_ekf2_sel_imu_velocity
-	)
+	uint8_t _selected{INVALID_INSTANCE}; ///< Stores selected.
+	uint64_t _selected_since_us{0}; ///< Timestamp or duration value in microseconds: selected since us.
 };
-#endif // !EKF2SELECTOR_HPP

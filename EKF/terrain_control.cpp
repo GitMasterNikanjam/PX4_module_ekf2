@@ -38,7 +38,7 @@
 #include "ekf.h"
 #include "ekf_derivation/generated/compute_hagl_innov_var.h"
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
 void Ekf::initTerrain()
 {

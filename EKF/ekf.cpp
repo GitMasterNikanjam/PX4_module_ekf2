@@ -41,7 +41,7 @@
 
 #include "ekf.h"
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
 bool Ekf::init(uint64_t timestamp)
 {

@@ -35,9 +35,9 @@
 
 #include <ekf_derivation/generated/compute_yaw_innov_var_and_h.h>
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
-bool Ekf::fuseYaw(estimator_aid_source1d_s &aid_src_status, const VectorState &H_YAW, bool reset)
+bool Ekf::fuseYaw(ekf2::AidSourceStatus1D &aid_src_status, const VectorState &H_YAW, bool reset)
 {
 	// check if the innovation variance calculation is badly conditioned
 	if (aid_src_status.innovation_variance >= aid_src_status.observation_variance) {
@@ -175,7 +175,7 @@ void Ekf::resetYawByFusion(const float yaw, const float yaw_variance)
 {
 	const Quatf quat_before_reset = _state.quat_nominal;
 
-	estimator_aid_source1d_s aid_src_status{};
+	ekf2::AidSourceStatus1D aid_src_status{};
 	aid_src_status.observation = yaw;
 	aid_src_status.observation_variance = yaw_variance;
 	aid_src_status.innovation = wrap_pi(getEulerYaw(_state.quat_nominal) - yaw);

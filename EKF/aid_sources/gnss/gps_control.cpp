@@ -37,7 +37,7 @@
  */
 
 #include "ekf.h"
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
 void Ekf::controlGpsFusion(const imuSample &imu_delayed)
 {
@@ -126,7 +126,7 @@ void Ekf::controlGpsFusion(const imuSample &imu_delayed)
 	}
 }
 
-void Ekf::controlGnssVelFusion(estimator_aid_source3d_s &aid_src, const bool force_reset)
+void Ekf::controlGnssVelFusion(ekf2::AidSourceStatus3D &aid_src, const bool force_reset)
 {
 	const bool continuing_conditions_passing = (_params.ekf2_gps_ctrl & static_cast<int32_t>(GnssCtrl::VEL))
 			&& _control_status.flags.tilt_align
@@ -182,7 +182,7 @@ void Ekf::controlGnssVelFusion(estimator_aid_source3d_s &aid_src, const bool for
 	}
 }
 
-void Ekf::controlGnssPosFusion(estimator_aid_source2d_s &aid_src, const bool force_reset)
+void Ekf::controlGnssPosFusion(ekf2::AidSourceStatus2D &aid_src, const bool force_reset)
 {
 	const bool gnss_pos_enabled = (_params.ekf2_gps_ctrl & static_cast<int32_t>(GnssCtrl::HPOS));
 
@@ -303,7 +303,7 @@ bool Ekf::isGnssPosResetAllowed() const
 	return allowed;
 }
 
-void Ekf::updateGnssVel(const imuSample &imu_sample, const gnssSample &gnss_sample, estimator_aid_source3d_s &aid_src)
+void Ekf::updateGnssVel(const imuSample &imu_sample, const gnssSample &gnss_sample, ekf2::AidSourceStatus3D &aid_src)
 {
 	// correct velocity for offset relative to IMU
 	const Vector3f pos_offset_body = gnss_sample.pos_body - _params.imu_pos_body;
@@ -341,7 +341,7 @@ void Ekf::updateGnssVel(const imuSample &imu_sample, const gnssSample &gnss_samp
 	}
 }
 
-void Ekf::updateGnssPos(const gnssSample &gnss_sample, estimator_aid_source2d_s &aid_src)
+void Ekf::updateGnssPos(const gnssSample &gnss_sample, ekf2::AidSourceStatus2D &aid_src)
 {
 	// correct position and height for offset relative to IMU
 	const Vector3f pos_offset_body = gnss_sample.pos_body - _params.imu_pos_body;
@@ -374,7 +374,7 @@ void Ekf::updateGnssPos(const gnssSample &gnss_sample, estimator_aid_source2d_s 
 			      math::max(_params.ekf2_gps_p_gate, 1.f));            // innovation gate
 }
 
-void Ekf::controlGnssYawEstimator(estimator_aid_source3d_s &aid_src_vel)
+void Ekf::controlGnssYawEstimator(ekf2::AidSourceStatus3D &aid_src_vel)
 {
 	// update yaw estimator velocity (basic sanity check on GNSS velocity data)
 	const float vel_var = aid_src_vel.observation_variance[0];
@@ -443,7 +443,7 @@ bool Ekf::tryYawEmergencyReset()
 	return success;
 }
 
-void Ekf::resetVelocityToGnss(estimator_aid_source3d_s &aid_src)
+void Ekf::resetVelocityToGnss(ekf2::AidSourceStatus3D &aid_src)
 {
 	_information_events.flags.reset_vel_to_gps = true;
 	resetVelocityTo(Vector3f(aid_src.observation), Vector3f(aid_src.observation_variance));
@@ -451,7 +451,7 @@ void Ekf::resetVelocityToGnss(estimator_aid_source3d_s &aid_src)
 	resetAidSourceStatusZeroInnovation(aid_src);
 }
 
-void Ekf::resetHorizontalPositionToGnss(estimator_aid_source2d_s &aid_src)
+void Ekf::resetHorizontalPositionToGnss(ekf2::AidSourceStatus2D &aid_src)
 {
 	_information_events.flags.reset_pos_to_gps = true;
 	resetLatLonTo(aid_src.observation[0], aid_src.observation[1],

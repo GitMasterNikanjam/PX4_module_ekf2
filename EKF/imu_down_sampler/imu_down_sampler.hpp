@@ -38,42 +38,53 @@
 #ifndef EKF_IMU_DOWN_SAMPLER_HPP
 #define EKF_IMU_DOWN_SAMPLER_HPP
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 #include <matrix/math.hpp>
 
 #include "../common.h"
 
 using namespace estimator;
 
+/**
+ * @brief Combines high-rate IMU increments into the EKF prediction interval.
+ *
+ * Angular and velocity increments are accumulated with their elapsed times;
+ * update() indicates when a complete down-sampled output is ready. The target
+ * interval is provided through the referenced configuration value.
+ */
 class ImuDownSampler
 {
 public:
+	/** @brief Construct sampler using a referenced target output period in microseconds. */
 	explicit ImuDownSampler(int32_t &target_dt_us);
+	/** @brief Destroy the sampler and release its owned resources. */
 	~ImuDownSampler() = default;
 
+	/** @brief Accumulate one IMU sample; return true when a down-sampled sample is ready. */
 	bool update(const imuSample &imu_sample_new);
 
 	imuSample getDownSampledImuAndTriggerReset()
 	{
-		imuSample imu{_imu_down_sampled};
+		imuSample imu{_imu_down_sampled}; ///< Stores imu.
 		reset();
 		return imu;
 	}
 
 private:
+	/** @brief Clear accumulated IMU increments and timing state. */
 	void reset();
 
-	imuSample _imu_down_sampled{};
-	Quatf _delta_angle_accumulated{};
+	imuSample _imu_down_sampled{}; ///< Stores imu down sampled.
+	Quatf _delta_angle_accumulated{}; ///< Stores delta angle accumulated.
 
-	int _accumulated_samples{0};
-	int _required_samples{1};
+	int _accumulated_samples{0}; ///< Stores accumulated samples.
+	int _required_samples{1}; ///< Stores required samples.
 
-	int32_t &_target_dt_us;
+	int32_t &_target_dt_us; ///< Timestamp or duration value in microseconds: target dt us.
 
-	float _target_dt_s{0.010f};
-	float _min_dt_s{0.005f};
+	float _target_dt_s{0.010f}; ///< Time interval or time constant in seconds: target dt s.
+	float _min_dt_s{0.005f}; ///< Time interval or time constant in seconds: min dt s.
 
-	float _delta_ang_dt_avg{0.005f};
+	float _delta_ang_dt_avg{0.005f}; ///< Time interval or time constant in seconds: delta ang dt avg.
 };
 #endif // !EKF_IMU_DOWN_SAMPLER_HPP

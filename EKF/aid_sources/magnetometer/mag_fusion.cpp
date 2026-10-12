@@ -48,9 +48,9 @@
 
 #include <ekf_derivation/generated/compute_mag_declination_pred_innov_var_and_h.h>
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
-bool Ekf::fuseMag(const Vector3f &mag, const float R_MAG, VectorState &H, estimator_aid_source3d_s &aid_src,
+bool Ekf::fuseMag(const Vector3f &mag, const float R_MAG, VectorState &H, ekf2::AidSourceStatus3D &aid_src,
 		  bool update_all_states, bool update_tilt)
 {
 	// if any axis failed, abort the mag fusion

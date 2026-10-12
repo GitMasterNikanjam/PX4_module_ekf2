@@ -37,7 +37,7 @@
 
 #include "ekf.h"
 
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 #include <float.h>
 #include <ekf_derivation/generated/compute_flow_xy_innov_var_and_hx.h>
 #include <ekf_derivation/generated/compute_flow_y_innov_var_and_h.h>

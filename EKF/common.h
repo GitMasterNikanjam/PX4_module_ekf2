@@ -33,7 +33,12 @@
 
 /**
  * @file common.h
- * Definition of base class for attitude estimators
+ * @brief Shared sensor samples, configuration types, and estimator status.
+ *
+ * This header defines the data contract between a host application and the
+ * EKF. Timestamps use monotonic microseconds unless stated otherwise. Vector
+ * frames and units are documented on each sample field; supply values in
+ * these units without relying on implicit PX4 message conversions.
  *
  * @author Roman Bast <bapstroman@gmail.com>
  * @author Siddharth Bharat Purohit <siddharthbharatpurohit@gmail.com>
@@ -45,7 +50,7 @@
 #include <cstdint>
 
 #include <matrix/math.hpp>
-#include <mathlib/math/Utilities.hpp>
+#include <math/Utilities.hpp>
 
 namespace estimator
 {
@@ -89,11 +94,13 @@ static constexpr float BADACC_BIAS_PNOISE =
 static constexpr uint64_t GNDEFFECT_TIMEOUT =
 	10e6; ///< Maximum period of time that ground effect protection will be active after it was last turned on (uSec)
 
+/** @brief Coordinate frame used by external-vision position data. */
 enum class PositionFrame : uint8_t {
 	LOCAL_FRAME_NED = 0,
 	LOCAL_FRAME_FRD = 1,
 };
 
+/** @brief Coordinate frame used by external-vision velocity data. */
 enum class VelocityFrame : uint8_t {
 	LOCAL_FRAME_NED = 0,
 	LOCAL_FRAME_FRD = 1,
@@ -179,6 +186,7 @@ enum class FlowGyroSource : uint8_t {
 	Internal = 1
 };
 
+/** @brief Integrated angular and velocity increments from the IMU. */
 struct imuSample {
 	uint64_t    time_us{};                ///< timestamp of the measurement (uSec)
 	Vector3f    delta_ang{};              ///< delta angle in body frame (integrated gyro measurements) (rad)
@@ -188,6 +196,7 @@ struct imuSample {
 	bool        delta_vel_clipping[3] {}; ///< true (per axis) if this sample contained any accelerometer clipping
 };
 
+/** @brief GNSS position, velocity, quality, and optional heading observation. */
 struct gnssSample {
 	uint64_t    time_us{};    ///< timestamp of the measurement (uSec)
 	double      lat{};        ///< latitude (degrees)
@@ -208,24 +217,28 @@ struct gnssSample {
 	Vector3f    pos_body{};   ///< position of GPS antenna in body frame (m)
 };
 
+/** @brief Magnetometer observation expressed in the sensor/body axes. */
 struct magSample {
 	uint64_t    time_us{};  ///< timestamp of the measurement (uSec)
 	Vector3f    mag{};      ///< NED magnetometer body frame measurements (Gauss)
 	bool        reset{false}; ///< magnetometer changed (different sensor or calibration change)
 };
 
+/** @brief Barometric altitude observation referenced to mean sea level. */
 struct baroSample {
 	uint64_t    time_us{};  ///< timestamp of the measurement (uSec)
 	float       hgt{};      ///< pressure altitude above sea level (m)
-	bool        reset{false};
+	bool        reset{false}; ///< State flag indicating reset.
 };
 
+/** @brief Airspeed observation and equivalent-to-true-airspeed scale. */
 struct airspeedSample {
 	uint64_t    time_us{};          ///< timestamp of the measurement (uSec)
 	float       true_airspeed{};    ///< true airspeed measurement (m/sec)
 	float       eas2tas{};          ///< equivalent to true airspeed factor
 };
 
+/** @brief Integrated optical-flow angular motion and associated gyro rate. */
 struct flowSample {
 	uint64_t    time_us{};   ///< timestamp of the integration period midpoint (uSec)
 	Vector2f    flow_rate{}; ///< measured angular rate of the image about the X and Y body axes (rad/s), RH rotation is positive
@@ -234,6 +247,7 @@ struct flowSample {
 };
 
 #if defined(CONFIG_EKF2_EXTERNAL_VISION)
+/** @brief External-vision pose/velocity measurement and uncertainty. */
 struct extVisionSample {
 	uint64_t    time_us{};     ///< timestamp of the measurement (uSec)
 	Vector3f    pos{};         ///< XYZ position in external vision's local reference frame (m) - Z must be aligned with down axis
@@ -242,9 +256,9 @@ struct extVisionSample {
 	Vector3f    position_var{};    ///< XYZ position variances (m**2)
 	Vector3f    velocity_var{};    ///< XYZ velocity variances ((m/sec)**2)
 	Vector3f    orientation_var{}; ///< orientation variance (rad**2)
-	PositionFrame pos_frame = PositionFrame::LOCAL_FRAME_FRD;
-	VelocityFrame vel_frame = VelocityFrame::BODY_FRAME_FRD;
-	uint8_t     reset_counter{};
+	PositionFrame pos_frame = PositionFrame::LOCAL_FRAME_FRD; ///< Stores pos frame.
+	VelocityFrame vel_frame = VelocityFrame::BODY_FRAME_FRD; ///< Stores vel frame.
+	uint8_t     reset_counter{}; ///< Stores reset counter.
 	int8_t     quality{};     ///< quality indicator between 0 and 100
 };
 #endif // CONFIG_EKF2_EXTERNAL_VISION
@@ -264,6 +278,7 @@ struct auxVelSample {
 };
 #endif // CONFIG_EKF2_AUXVEL
 
+/** @brief Range observation to a beacon with known geodetic coordinates. */
 struct rangingBeaconSample {
 	uint64_t    time_us{};     ///< timestamp of the measurement (uSec)
 	uint8_t     beacon_id{};   ///< beacon identifier
@@ -274,37 +289,50 @@ struct rangingBeaconSample {
 	float       beacon_alt{};  ///< beacon altitude AMSL (m)
 };
 
+/** @brief Host-reported vehicle context used to control EKF modes. */
 struct systemFlagUpdate {
-	uint64_t time_us{};
-	bool at_rest{false};
-	bool in_air{true};
-	bool is_fixed_wing{false};
-	bool gnd_effect{false};
-	bool constant_pos{false};
-	bool in_transition{false};
+	uint64_t time_us{}; ///< Timestamp or duration value in microseconds: time us.
+	bool at_rest{false}; ///< State flag indicating at rest.
+	bool in_air{true}; ///< State flag indicating in air.
+	bool is_fixed_wing{false}; ///< State flag indicating is fixed wing.
+	bool gnd_effect{false}; ///< State flag indicating gnd effect.
+	bool constant_pos{false}; ///< State flag indicating constant pos.
+	bool in_transition{false}; ///< State flag indicating in transition.
 };
 
-// Runtime fusion control. Populated by EKF2 module, read by EKF core.
-static constexpr uint8_t MAX_AGP_INSTANCES = 4;
+/** @brief Maximum number of auxiliary global-position fusion sources. */
+static constexpr uint8_t MAX_AGP_INSTANCES = 4; ///< Compile-time constant defining MAX AGP INSTANCES.
 
+/** @brief Availability and run-time enable state for one sensor fusion source. */
 struct FusionSensor {
-	bool enabled{false};   // runtime toggleable via MAVLink
-	bool available{false}; // CTRL-param != disabled-value (functions as factory-setting)
+	bool enabled{false};   ///< Current run-time enable state.
+	bool available{false}; ///< Build/configuration says this source is available.
+	/** @brief Return true when both configured available and currently enabled. */
 	bool intended() const { return enabled && available; }
 };
 
+/** @brief Run-time enable/availability controls for all supported fusion sources. */
 struct FusionControl {
-	FusionSensor gps;
-	FusionSensor of;
-	FusionSensor ev;
-	FusionSensor agp[MAX_AGP_INSTANCES];
-	FusionSensor baro;
-	FusionSensor rng;
-	FusionSensor mag;
-	FusionSensor aspd;
-	FusionSensor rngbcn;
+	FusionSensor gps; ///< Stores gps.
+	FusionSensor of; ///< Stores of.
+	FusionSensor ev; ///< Stores ev.
+	FusionSensor agp[MAX_AGP_INSTANCES]; ///< Stores agp.
+	FusionSensor baro; ///< Stores baro.
+	FusionSensor rng; ///< Stores rng.
+	FusionSensor mag; ///< Stores mag.
+	FusionSensor aspd; ///< Stores aspd.
+	FusionSensor rngbcn; ///< Stores rngbcn.
 };
 
+/**
+ * @brief EKF tuning and sensor-control parameters.
+ *
+ * This structure mirrors the estimator's runtime configuration and uses
+ * compile-time feature guards for optional sensor groups. Noise values are
+ * standard deviations or spectral densities as stated by their field
+ * comments. Configure fields before initialization where possible; changing
+ * timing/delay parameters while running can affect buffer sizing and fusion.
+ */
 struct parameters {
 
 	int32_t ekf2_predict_us{10000};         ///< filter update interval in microseconds
@@ -340,7 +368,7 @@ struct parameters {
 	float ekf2_angerr_init{0.1f};           ///< 1-sigma tilt error after initial alignment using gravity vector (rad)
 
 #if defined(CONFIG_EKF2_BAROMETER)
-	int32_t ekf2_baro_ctrl {1};
+	int32_t ekf2_baro_ctrl {1}; ///< Stores ekf2 baro ctrl.
 	float ekf2_baro_delay {0.0f};           ///< barometer height measurement delay relative to the IMU (mSec)
 	float ekf2_baro_noise{2.0f};            ///< observation noise for barometric height fusion (m)
 	float baro_bias_nsd{0.13f};             ///< process noise for barometric height bias estimation (m/s/sqrt(Hz))
@@ -358,7 +386,7 @@ struct parameters {
 	float ekf2_pcoef_z{0.0f};     // (-)
 
 	// upper limit on airspeed used for correction  (m/s**2)
-	float ekf2_aspd_max{20.0f};
+	float ekf2_aspd_max{20.0f}; ///< Stores ekf2 aspd max.
 # endif // CONFIG_EKF2_BARO_COMPENSATION
 #endif // CONFIG_EKF2_BAROMETER
 
@@ -412,10 +440,10 @@ struct parameters {
 	int32_t ekf2_mag_type{0};               ///< integer used to specify the type of magnetometer fusion used
 	float ekf2_mag_acclim{0.5f};            ///< when in auto select mode, heading fusion will be used when manoeuvre accel is lower than this (m/sec**2)
 	// compute synthetic magnetomter Z value if possible
-	int32_t ekf2_synt_mag_z{0};
-	int32_t ekf2_mag_check{0};
-	float ekf2_mag_chk_str{0.2f};
-	float ekf2_mag_chk_inc{20.f};
+	int32_t ekf2_synt_mag_z{0}; ///< Stores ekf2 synt mag z.
+	int32_t ekf2_mag_check{0}; ///< Stores ekf2 mag check.
+	float ekf2_mag_chk_str{0.2f}; ///< Stores ekf2 mag chk str.
+	float ekf2_mag_chk_inc{20.f}; ///< Stores ekf2 mag chk inc.
 #endif // CONFIG_EKF2_MAGNETOMETER
 
 #if defined(CONFIG_EKF2_AIRSPEED)
@@ -428,7 +456,7 @@ struct parameters {
 
 #if defined(CONFIG_EKF2_SIDESLIP)
 	// synthetic sideslip fusion
-	int32_t ekf2_fuse_beta{0};
+	int32_t ekf2_fuse_beta{0}; ///< Stores ekf2 fuse beta.
 	float ekf2_beta_gate{5.0f};             ///< synthetic sideslip innovation consistency gate size in standard deviation (STD)
 	float ekf2_beta_noise{0.3f};            ///< synthetic sideslip noise (rad)
 	const float beta_avg_ft_us{150000.0f};  ///< The average time between synthetic sideslip measurements (uSec)
@@ -466,7 +494,7 @@ struct parameters {
 
 #if defined(CONFIG_EKF2_EXTERNAL_VISION)
 	// vision position fusion
-	int32_t ekf2_ev_ctrl{0};
+	int32_t ekf2_ev_ctrl{0}; ///< Stores ekf2 ev ctrl.
 	float ekf2_ev_delay{175.0f};            ///< off-board vision measurement delay relative to the IMU (mSec)
 	float ekf2_evv_noise{0.1f};             ///< minimum allowed observation noise for EV velocity fusion (m/sec)
 	float ekf2_evp_noise{0.1f};             ///< minimum allowed observation noise for EV position fusion (m)
@@ -485,7 +513,7 @@ struct parameters {
 #endif // CONFIG_EKF2_GRAVITY_FUSION
 
 #if defined(CONFIG_EKF2_OPTICAL_FLOW)
-	int32_t ekf2_of_ctrl {0};
+	int32_t ekf2_of_ctrl {0}; ///< Stores ekf2 of ctrl.
 	int32_t ekf2_of_gyr_src {static_cast<int32_t>(FlowGyroSource::Auto)};
 	float ekf2_of_delay{5.0f};              ///< optical flow measurement delay relative to the IMU (mSec) - this is to the middle of the optical flow integration interval
 
@@ -518,7 +546,7 @@ struct parameters {
 
 #if defined(CONFIG_EKF2_DRAG_FUSION)
 	// multi-rotor drag specific force fusion
-	int32_t ekf2_drag_ctrl{0};
+	int32_t ekf2_drag_ctrl{0}; ///< Stores ekf2 drag ctrl.
 	float ekf2_drag_noise{2.5f};            ///< observation noise variance for drag specific force measurements (m/sec**2)**2
 	float ekf2_bcoef_x{100.0f};             ///< bluff body drag ballistic coefficient for the X-axis (kg/m**2)
 	float ekf2_bcoef_y{100.0f};             ///< bluff body drag ballistic coefficient for the Y-axis (kg/m**2)
@@ -563,7 +591,7 @@ bool bad_sideslip      :
 		bool bad_acc_vertical  : 1; ///< 10 - true if bad vertical accelerometer data has been detected
 		bool bad_acc_clipping  : 1; ///< 11 - true if delta velocity data contains clipping (asymmetric railing)
 	} flags;
-	uint32_t value;
+	uint32_t value; ///< Stores value.
 };
 
 // bitmask containing filter control status
@@ -637,7 +665,7 @@ uint64_t gnss_hgt_fault              :
 		uint64_t rngbcn_fusion           : 1; ///< 50 - true when ranging beacon position fusion is active
 
 	} flags;
-	uint64_t value;
+	uint64_t value; ///< Stores value.
 };
 
 // define structure used to communicate information events
@@ -669,7 +697,7 @@ bool reset_pos_to_ext_obs       :
 		1; ///< 17 - true when horizontal position was reset to an external observation while deadreckoning
 		bool reset_wind_to_ext_obs  : 1; ///< 18 - true when wind states were reset to an external observation
 	} flags;
-	uint32_t value;
+	uint32_t value; ///< Stores value.
 };
 
 }

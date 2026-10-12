@@ -43,7 +43,7 @@
 #include "ekf_derivation/generated/compute_body_vel_z_innov_var.h"
 
 void Ekf::controlEvVelFusion(ExternalVisionVel &ev, const bool common_starting_conditions_passing, const bool ev_reset,
-			     const bool quality_sufficient, estimator_aid_source3d_s &aid_src)
+			     const bool quality_sufficient, ekf2::AidSourceStatus3D &aid_src)
 {
 	static constexpr const char *AID_SRC_NAME = "EV velocity";
 
@@ -152,7 +152,7 @@ void Ekf::stopEvVelFusion()
 	}
 }
 
-void Ekf::fuseLocalFrameVelocity(estimator_aid_source3d_s &aid_src, const uint64_t &timestamp,
+void Ekf::fuseLocalFrameVelocity(ekf2::AidSourceStatus3D &aid_src, const uint64_t &timestamp,
 				 const Vector3f &measurement, const Vector3f &measurement_var, const float &innovation_gate)
 {
 	updateAidSourceStatus(aid_src,
@@ -165,7 +165,7 @@ void Ekf::fuseLocalFrameVelocity(estimator_aid_source3d_s &aid_src, const uint64
 	fuseVelocity(aid_src);
 }
 
-void Ekf::fuseBodyFrameVelocity(estimator_aid_source3d_s &aid_src, const uint64_t &timestamp,
+void Ekf::fuseBodyFrameVelocity(ekf2::AidSourceStatus3D &aid_src, const uint64_t &timestamp,
 				const Vector3f &measurement, const Vector3f &measurement_var, const float &innovation_gate)
 {
 	VectorState H[3];

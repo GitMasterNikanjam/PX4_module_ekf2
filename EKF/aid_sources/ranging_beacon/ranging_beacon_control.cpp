@@ -38,7 +38,7 @@
 
 #include "ekf.h"
 #include <ekf_derivation/generated/compute_range_beacon_innov_var_and_h.h>
-#include <mathlib/mathlib.h>
+#include <mathlib.h>
 
 void Ekf::controlRangingBeaconFusion(const imuSample &imu_delayed)
 {
