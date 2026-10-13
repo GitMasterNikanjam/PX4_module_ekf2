@@ -35,7 +35,7 @@
 #define EKF_EKFGSF_YAW_H
 
 #include <mathlib.h>
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 
 static constexpr uint8_t N_MODELS_EKFGSF = 5; ///< Compile-time constant defining N MODELS EKFGSF.
 

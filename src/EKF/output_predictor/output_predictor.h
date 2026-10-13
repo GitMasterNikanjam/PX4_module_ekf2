@@ -34,7 +34,7 @@
 #ifndef EKF_OUTPUT_PREDICTOR_H
 #define EKF_OUTPUT_PREDICTOR_H
 
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 
 #include "../ringbuffer/TimestampedRingBuffer.hpp"
 

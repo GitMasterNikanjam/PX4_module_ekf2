@@ -50,7 +50,7 @@
 #ifndef EKF_BIAS_ESTIMATOR_HPP
 #define EKF_BIAS_ESTIMATOR_HPP
 
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 #include <mathlib.h>
 #include <math/filter/AlphaFilter.hpp>
 

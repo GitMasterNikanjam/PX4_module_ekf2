@@ -35,7 +35,7 @@
 #include <math.h>
 #include "EKF/common.h"
 #include "EKF/aid_sources/range_finder/sensor_range_finder.hpp"
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 
 using estimator::sensor::rangeSample;
 using matrix::Dcmf;

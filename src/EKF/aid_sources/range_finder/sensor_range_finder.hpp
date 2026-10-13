@@ -41,7 +41,7 @@
 #ifndef EKF_SENSOR_RANGE_FINDER_HPP
 #define EKF_SENSOR_RANGE_FINDER_HPP
 
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 #include <math/filter/MedianFilter.hpp>
 
 namespace estimator

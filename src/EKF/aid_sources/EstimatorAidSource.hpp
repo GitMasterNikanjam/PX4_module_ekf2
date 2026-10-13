@@ -36,7 +36,7 @@
 
 #include <cstdint>
 
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 
 // forward declarations
 class Ekf;

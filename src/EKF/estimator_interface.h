@@ -78,7 +78,7 @@
 
 #include <atmosphere.h>
 #include <lat_lon_alt.hpp>
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 #include <mathlib.h>
 #include <math/filter/AlphaFilter.hpp>
 

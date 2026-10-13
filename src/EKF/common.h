@@ -49,7 +49,7 @@
 
 #include <cstdint>
 
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 #include <math/Utilities.hpp>
 
 namespace estimator

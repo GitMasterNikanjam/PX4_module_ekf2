@@ -39,7 +39,7 @@
 #define EKF_IMU_DOWN_SAMPLER_HPP
 
 #include <mathlib.h>
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 
 #include "../common.h"
 

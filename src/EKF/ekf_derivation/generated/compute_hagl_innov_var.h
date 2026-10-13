@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 
 namespace sym {
 

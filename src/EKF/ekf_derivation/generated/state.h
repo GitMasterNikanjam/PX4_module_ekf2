@@ -5,7 +5,7 @@
 #ifndef EKF_STATE_H
 #define EKF_STATE_H
 
-#include <matrix/math.hpp>
+#include <src/math.hpp>
 
 namespace estimator
 {
